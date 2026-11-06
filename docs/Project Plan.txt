@@ -1,0 +1,49 @@
+Potential module			Main responsibility
+F01 - Project Foundation		: Next.js, Supabase, Git, Initial project documentation
+Module 01 - Organization Management	: Companies, business units, departments, positions
+Module 02 - Employee Management		: Employee profiles and employment records
+Module 03 - Employee Lifecycle		: Hiring, probation, transfer, promotion, termination
+Module 04 - Attendance			: Timekeeping and attendance records
+Module 05 - Leave Management		: Leave policies, applications, balances
+Module 06 - Work Schedule		: Shifts, working days, holidays
+Module 07 - Payroll			: Salary structures, calculations, payroll processing
+Module 08 - Performance			: Evaluations and performance management
+Module 09 - Recruitment			: Vacancies and candidate management
+Module 10 - Training			: Training programs and employee development
+Module 11 - Reporting			: HR reports and analytics
+
+
+Standard module development lifecycle
+1. M1 — Requirements
+   Define business objectives, workflows, policies, user roles, and acceptance criteria.
+
+2. M2 — Functional design   
+   Define screens, user journeys, validations, and expected behavior.
+
+3. M3 — Database design  
+   Define schemas, tables, relationships, constraints, functions, and RLS requirements.
+
+4. M4 — Backend development & testing
+   Implement business logic, database operations, and API/server actions, validation rule & message.
+
+5. M5 — Frontend development & testing
+   Implement pages, forms, tables, dialogs, and interactions.
+
+6. M6 — UAT
+   Test business scenarios, permissions, data integrity, and edge cases.
+
+7. M7 — Deployment
+   Deploy the module to the test environment and verify actual workflows.
+
+8. M8 — Completion and documentation
+   Record decisions, schema changes, test results, and known limitations.
+
+Schema		Responsibility
+core		Tenant, users, company-wide foundations
+config		Shared lookup and configuration
+org		Organization and position structures
+hr		Employee records and lifecycle
+payroll		Payroll processing
+leave		Leave management
+attendance	Attendance and timekeeping
+audit		Audit logs

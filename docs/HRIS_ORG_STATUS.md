@@ -105,6 +105,7 @@ All migrations are applied to the dev project. All tests were run and **passed**
 | `008_close_unit.sql` | ORG | passed (test file name not recorded here) | ORG Stage 6b: `private.close_org_unit`, `private.close_pos_unit` |
 | `009_reorg.sql` | ORG | `009_010_reorg_read_layer_test.sql` | ORG Stage 6c: `private.reorg_org_unit`, `private.reorg_pos_unit`, `private.pos_department_of` |
 | `010_read_layer.sql` | ORG | `009_010_reorg_read_layer_test.sql` | ORG Stage 7: read views and cascade functions in `public` |
+| `011_catalog_read_views.sql` | ORG | passed (test file name not recorded here) | ORG Stage 7b: `public.parent_companies` and `public.hierarchy_levels` views (closes read gaps G1 and G2) |
 
 ### Tables (ORG)
 - `core.hierarchy_level`, `core.company_level_rule`
@@ -113,6 +114,43 @@ All migrations are applied to the dev project. All tests were run and **passed**
 - `core.job_position` (company, Department, name, valid dates)
 - `core.org_unit_department` (which Departments each org unit may use, no inheritance from the parent)
 - `core.position_allocation` (org unit, eligibility row, job, position unit, approved headcount, valid dates)
+
+### Dev seed data (not a migration)
+`seed_dev_tenant.sql` was run once in the dev project. It created 1 tenant ("Dev Tenant"), 1 parent company ("Dev Parent Company") and the tenant membership for `mek.rotha@gmail.com`. It refuses to run if `core.tenant` already has rows. Dev only. A proper setup function for tenant, company and membership is still missing (see `HRIS_ORG_FRONTEND_REFERENCE.md`, section 8).
+
+`seed_dev_org_sample.sql` was run once after it. Sample ORG data for "Dev Parent Company": 8 level rules, 6 org units, 6 position units, 6 Department listings, 5 jobs and 1 allocation (Software Engineer at Head Office, Backend Section, headcount 5). It inserts rules, listings and jobs straight into the `core` tables (no write functions exist for them) and uses `private.create_org_unit`, `private.create_pos_unit` and `private.create_allocation` for the rest. It refuses to run if the company already has ORG data. Dev only. Khmer names in it are test samples.
+
+### Frontend files (ORG Stage 8)
+
+**Stage 8a: foundation**
+| File | What it does |
+|---|---|
+| `lib/supabase/client.ts` | `createBrowserClient` now typed with the `<Database>` generic from `./database.types` |
+| `lib/supabase/server.ts` | `createServerClient` now typed with the `<Database>` generic from `./database.types` |
+| `proxy.ts` (project root) | Refreshes the Supabase session cookie on every request with `supabase.auth.getUser()`. Redirects signed-out visitors to `/login`, and signed-in users away from `/login` to `/` |
+| `app/login/page.tsx` | Client sign-in form using `supabase.auth.signInWithPassword`. Shows any auth error, redirects to `/` on success |
+
+**Stage 8b: read-only config screen**
+| File | What it does |
+|---|---|
+| `lib/i18n.ts` | `displayName(locale, nameEn, nameKm)`: shows Khmer when `km` is active and `name_km` is not empty, otherwise `name_en` |
+| `modules/org/types.ts` | Narrowed non-null interfaces: `ParentCompany`, `HierarchyLevel`, `CompanyLevelRule`, `UnitRow`, `UnitOption`, `JobOption`, `PositionAllocation` |
+| `modules/org/components/OrgConfigView.tsx` | Header (company selector, `EN` / `ខ្មែរ` switcher, user email, Sign Out) and two side-by-side tables (`org` and `pos`) combining `hierarchy_levels` with the selected company's active rules from `company_level_rules_current` |
+| `app/page.tsx` | Async server loader inside `<Suspense>` (compatible with `cacheComponents`). Fetches `parent_companies`, `hierarchy_levels` and `company_level_rules_current` |
+
+**Stage 8c: trees and cascading allocation form (read-only)**
+| File | What it does |
+|---|---|
+| `modules/org/queries.ts` | New. Browser wrappers for `org_options`, `pos_options`, `eligible_departments`, `eligible_jobs`, plus `fetchExistingAllocation` (reads `position_allocations_current` to spot a duplicate open allocation) |
+| `modules/org/labels.ts` | New. `levelLabel()`: level name in the active language, falls back to the level code |
+| `modules/org/components/AsyncSelect.tsx` | New. Reusable dropdown that loads its own options. Shows a reason when the list is empty. Reset it with a `key` |
+| `modules/org/components/CascadeSelector.tsx` | New. One dropdown per level, next level loads on pick, user can stop at any depth. Used for the org location and the position unit |
+| `modules/org/components/OrgTreeExplorer.tsx` | New. Read-only expandable tree with Expand all and Collapse all. Used for both the org tree and the position tree |
+| `modules/org/components/AllocationForm.tsx` | New. Org location -> Department -> position unit -> job -> headcount. Clears later steps when an earlier one changes. Summary and duplicate warning. **Save button is disabled** (no write function yet) |
+| `modules/org/components/OrgConfigView.tsx` | Replaced. Added four tabs: Configuration, Org tree, Position tree, Allocation form. New props `orgUnits` and `posUnits` |
+| `app/page.tsx` | Replaced. Also loads `org_units_current` and `pos_units_current` (all visible companies, filtered by company in the browser) |
+
+Type-check and manual test of each tab passed on the dev database, using the sample data from `seed_dev_org_sample.sql` (see "Dev seed data").
 
 ### Current versions of replaced functions
 When a later migration needs to change these, start from the **latest** version:
@@ -147,7 +185,12 @@ The `009_010` test creates two tenants, two users in `auth.users`, and switches 
 | 6c | Reorg functions | `009` | Done, passed |
 | 7 | Read layer | `010` | Done, passed |
 | 2b | Khmer level names | Small seed migration | **Skipped for now** |
-| 8 | Frontend | Login, `proxy.ts` session refresh, config screen, cascading allocation form, headcount grid. Manual test per screen, EN/KH check | Next. Read gaps G1 and G2 (see `HRIS_ORG_FRONTEND_REFERENCE.md`, section 9) should be closed first |
+| 7b | Catalog read views | `011` (`parent_companies`, `hierarchy_levels`) | Done, passed |
+| 8a | Frontend foundation | Typed Supabase clients, `proxy.ts` session refresh, login page | Done, passed |
+| 8b | Read-only config screen | `i18n.ts`, ORG types, `OrgConfigView`, `app/page.tsx` loader. Company list confirmed working after the dev seed | Done, passed |
+| 8c | Org/Position trees and cascading allocation form | Interactive read-only explorer and cascading form wired to `org_options`, `eligible_departments`, `pos_options` and `eligible_jobs` | Done, passed |
+| 8d | Headcount grid (read-only) | Table of open allocations from `position_allocations_current` for the selected company, with totals | **Next. Proposed, not yet agreed** |
+| 8e onward | Screens that save data | Need roles and permissions, `public` write functions and the missing write functions first (see section 6) | Not started |
 
 Employee hooks (hiring, transfers, promotions linked to `position_allocation`) were earlier listed here as a last stage. They belong to a later Employee module, not to ORG.
 
@@ -155,18 +198,20 @@ Employee hooks (hiring, transfers, promotions linked to `position_allocation`) w
 
 ## 6. Where we are now
 
-1. ORG Stages 0 to 7 are complete, applied and tested (migrations `000` to `010`). The ORG database for configuring the organization is done.
+1. ORG Stages 0 to 7b are complete, applied and tested (migrations `000` to `011`). ORG Stages 8a and 8b (frontend foundation and read-only config screen) are complete and passed.
 2. Skipped for now: ORG Stage 2b (Khmer level names).
-3. Proposed next step (not yet agreed): a small migration `011` adding two read views, `parent_companies` and `hierarchy_levels`, with a short test. After that, ORG Stage 8 can start read-only (login, `proxy.ts`, tree and allocation screens).
-4. Pending from you:
+3. Read gaps G1 and G2 are closed by migration `011`. `HRIS_ORG_FRONTEND_REFERENCE.md` is updated to match.
+4. ORG Stage 8c (read-only org and position tree explorer, cascading allocation form) is complete and passed on the dev database with sample data. The form cannot save, because no `public` write functions exist.
+5. Proposed next: ORG Stage 8d, a read-only headcount grid. It needs no database change. After that, saving needs this order: design roles and permissions, then the missing write functions (section 8 of `HRIS_ORG_FRONTEND_REFERENCE.md`, including closing one allocation), then `public` wrappers, then the save buttons.
+6. Pending from you:
+   - Agree the next step (8d).
    - Confirm or correct the assumptions in section 3.
    - Supply the Khmer names for the 7 levels when ready.
-   - Agree the proposed next step.
+   - Test file name for `006`, `007`, `008` and `011` if you want it recorded.
 
 ### Design notes to resolve in later stages
-- **ORG Stage 8 starts read-only.** Login, `proxy.ts` and screens that only read can use the `public` views and functions as they are.
 - **Writes:** frontend writes will go through `security definer` functions in `public` that wrap the `private` write functions, each with explicit `revoke` and `grant`. These do not exist yet and must be designed together with roles and permissions before any screen can save data.
-- **Missing write functions** (enable and disable a level, jobs, eligibility, closing one allocation, renaming a unit) are listed in `HRIS_ORG_FRONTEND_REFERENCE.md`, section 8.
+- **Missing write functions** (enable and disable a level, jobs, eligibility, closing one allocation, renaming a unit, create tenant, company and membership) are listed in `HRIS_ORG_FRONTEND_REFERENCE.md`, section 8.
 - **Roles and permissions:** not designed yet (currently tenant membership only). A shared topic, see `HRIS_PROJECT_OVERVIEW.md`.
 
 ---
@@ -174,6 +219,7 @@ Employee hooks (hiring, transfers, promotions linked to `position_allocation`) w
 ## 7. Lessons (ORG only)
 
 - Stage numbering: ORG Stages 3 and 4 map to migrations `003` (org tree) and `004` + `005` (position tree, jobs, eligibility). ORG Stage 5 is migration `006`, ORG Stages 6a/6b/6c are `007`/`008`/`009`, ORG Stage 7 is `010`. Migration numbers and ORG stages are not the same thing.
+- An empty dev database shows "No companies visible for your account" in the frontend. This is expected until a tenant, a company and a `tenant_member` row exist. Check those three tables before debugging frontend code.
 
 Project-wide lessons are in `HRIS_PROJECT_OVERVIEW.md`, section 6.
 
@@ -182,7 +228,7 @@ Project-wide lessons are in `HRIS_PROJECT_OVERVIEW.md`, section 6.
 ## 8. How to resume ORG work
 
 1. Open a new chat in the same Project and attach `HRIS_PROJECT_OVERVIEW.md`, this file and `package.json`.
-2. For ORG Stage 8 (frontend), also attach `HRIS_ORG_FRONTEND_REFERENCE.md` and the file lists of `app/` and `lib/supabase/`. Migration files are not needed unless a database change is required.
+2. For ORG Stage 8 (frontend), also attach `HRIS_ORG_FRONTEND_REFERENCE.md`, the file list of `app/`, `lib/supabase/` and `modules/org/`, plus the Stage 8 files the next step builds on (listed in section 4). Migration files are not needed unless a database change is required.
 3. For ORG database work, attach the migration files the change depends on (see the source map in `HRIS_ORG_FRONTEND_REFERENCE.md`). If a guard function is involved, use the latest version (see "Current versions of replaced functions").
 4. Say which stage you are on and paste any error text exactly.
 5. If a file is missing, say so and Claude will ask whether to generate it.

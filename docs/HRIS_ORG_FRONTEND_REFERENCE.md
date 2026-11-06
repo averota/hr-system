@@ -4,14 +4,14 @@ Last updated: 2026-11-06
 Purpose: Everything the frontend needs to know about the ORG (Organization structure) database: what it can read, what it cannot do yet, the rules and errors. Use it instead of reading the migration files.
 Read together with: `HRIS_PROJECT_OVERVIEW.md` (shared access model, dates and implementation notes), `HRIS_ORG_STATUS.md`, `HRIS_NAMING_CONVENTION.md`
 
-Covers migrations `002` to `010` (ORG), plus `001` where tenancy matters. All applied and tested on the dev project. Not reviewed for this document: `000_create_schemas.sql` and the files in `lib/supabase/`.
+Covers migrations `002` to `011` (ORG), plus `001` where tenancy matters. All applied and tested on the dev project. Not reviewed for this document: `000_create_schemas.sql` and the files in `lib/supabase/`.
 
 ---
 
 ## 1. Scope and access
 
 - This document covers the ORG module only. Other modules will have their own reference.
-- The frontend reads ORG data through **6 views and 4 functions in `public`** (section 3). It cannot write anything yet (section 8).
+- The frontend reads ORG data through **8 views and 4 functions in `public`** (section 3). It cannot write anything yet (section 8).
 - The shared access model (who can call what, which rows are visible, empty results, secret keys) is in `HRIS_PROJECT_OVERVIEW.md`, section 5.4. Nothing in ORG changes it.
 
 ---
@@ -34,7 +34,7 @@ Covers migrations `002` to `010` (ORG), plus `001` where tenancy matters. All ap
 | `section` | pos | 3 | Section | no | no |
 | `group` | pos | 4 | Group | no | no |
 
-Khmer level names (`level_name_km`) are empty for now.
+Khmer level names (`name_km` in `hierarchy_levels`) are empty for now.
 
 ### Company rules (configuration)
 - A rule says: "this company allows level X directly under level Y" (or directly under the root when there is no parent level).
@@ -55,7 +55,7 @@ Khmer level names (`level_name_km`) are empty for now.
 - **Allocation:** org unit + job + position unit + approved headcount. The job's Department must be listed for the org unit. The position unit is the job's own Department or an open Office, Section or Group anywhere below it.
 
 ### Open and closed
-- Everything has `valid_from` and `valid_to`. **Open (current) means `valid_to` is empty.** All views and functions in `public` return open rows only.
+- Everything has `valid_from` and `valid_to`. **Open (current) means `valid_to` is empty.** All views and functions in `public` return open rows only (except `parent_companies` and `hierarchy_levels`, which are not dated).
 - Closed rows are history. They cannot be read through `public` yet (see section 9).
 
 ---
@@ -67,6 +67,8 @@ Call views with `supabase.from('<view>')` and functions with `supabase.rpc('<fun
 ### Views
 | View | Columns |
 |---|---|
+| `parent_companies` | `company_id`, `tenant_id`, `name_en`, `name_km`, `is_active`. Companies in the caller's tenant(s) |
+| `hierarchy_levels` | `level_id`, `tree` (`org` or `pos`), `code`, `rank`, `name_en`, `name_km`, `can_be_root`, `is_required`. The global 7-level catalog. Note: column names here are `name_en` / `name_km`, not `level_name_en` / `level_name_km` as in the other views |
 | `company_level_rules_current` | `rule_id`, `company_id`, `tree` (`org` or `pos`), `level_id`, `level_code`, `level_rank`, `level_name_en`, `level_name_km`, `parent_level_id` (null = directly under the root), `parent_level_code`, `parent_level_name_en`, `parent_level_name_km`, `valid_from` |
 | `org_units_current` | `unit_id`, `company_id`, `level_id`, `level_code`, `level_rank`, `level_name_en`, `level_name_km`, `name_en`, `name_km`, `parent_unit_id` (null = directly under the company), `valid_from` |
 | `pos_units_current` | Same columns as `org_units_current`. `parent_unit_id` null = a Department |
@@ -100,7 +102,7 @@ Notes:
 
 | Step | User picks | Call | Notes |
 |---|---|---|---|
-| 1 | Company | (no read object yet, see section 9, gap G1) | Needed for every call below |
+| 1 | Company | `parent_companies` view | Needed for every call below |
 | 2 | Org location | `org_options(company, null)`, then `org_options(company, picked)` for each deeper level | The user can **stop at any depth**: an allocation may sit at any org unit. Offer "go deeper" only when the next call returns rows |
 | 3 | Department | `eligible_departments(company, orgUnit)` | Empty = no Department is listed for this org unit. Show a "not configured" message. Not inherited from the parent |
 | 4 | Position unit | Start with the Department itself. Optional: `pos_options(company, current)` repeatedly | The user can stop at any depth. The chosen unit is the Department or anything below it |
@@ -111,6 +113,8 @@ Rules for the form:
 - When an earlier step changes, **clear every later step**.
 - Invalid combinations (a job from a Department the org unit does not list) can never be offered, because each list comes from a function that filters them out.
 - Before saving (when the write function exists), check `position_allocations_current` for an existing allocation with the same org unit, position unit and job. The database rejects a duplicate open allocation (unique index `position_allocation_open_uq`, Postgres error code `23505`).
+
+Implemented (read-only, save disabled) in `modules/org/components/AllocationForm.tsx`, using `CascadeSelector`, `AsyncSelect` and the wrappers in `modules/org/queries.ts`. The duplicate check is `fetchExistingAllocation`.
 
 Headcount grid: read `position_allocations_current` filtered by `company_id`. Changing a headcount means closing the allocation and creating a new one (allocations are never edited).
 
@@ -253,7 +257,7 @@ Reorg keeps eligibility rows and allocations attached to the unit. It does not r
 | Eligibility screen | List a Department for an org unit, remove a listing |
 | Headcount grid | Close a single allocation (needed to change a headcount) |
 | Names | Rename a unit |
-| Setup | Create tenant, company and tenant membership |
+| Setup | Create tenant, company and tenant membership (dev data was seeded by hand, see `HRIS_ORG_STATUS.md`, section 4) |
 
 ---
 
@@ -261,8 +265,8 @@ Reorg keeps eligibility rows and allocations attached to the unit. It does not r
 
 | # | Gap | Effect | Planned fix |
 |---|---|---|---|
-| G1 | No read object for parent companies or tenants | The frontend cannot list companies, show a company name or get a `company_id` | `public.parent_companies` view (id, tenant id, names, active flag) |
-| G2 | No read object for the level catalog | A config screen cannot show levels a company has not enabled yet | `public.hierarchy_levels` view |
+| G1 | ~~No read object for parent companies or tenants~~ | **Closed** by migration `011`: `public.parent_companies` | none |
+| G2 | ~~No read object for the level catalog~~ | **Closed** by migration `011`: `public.hierarchy_levels` | none |
 | G3 | No `public` write functions | Nothing can be saved from the frontend | Wrappers over the `private` write functions, each with explicit `revoke` and `grant`, designed with roles |
 | G4 | Missing write functions (section 8) | Config, jobs, eligibility and headcount screens cannot save | New migrations, one area at a time |
 | G5 | No roles or permissions | Every tenant member sees everything and (later) could write everything | Design before G3. Shared topic, see `HRIS_PROJECT_OVERVIEW.md` |
@@ -278,6 +282,8 @@ Shared notes (generated types, `cacheComponents`, language fallback) are in `HRI
 - **Label mixed lists:** an option list may contain several levels. Show the level name beside each option.
 - **Cache keys:** include the company id (and the parent unit id for cascades).
 - **Empty lists:** show a reason ("no Departments listed for this org unit") instead of an empty dropdown.
+- **Reusable pieces:** `AsyncSelect` and `CascadeSelector` load their own options. Pass them a memoised (`useCallback`) loader, and give them a `key` that includes whatever they depend on (company, parent choice) so they reset.
+- **Units for trees:** `app/page.tsx` loads `org_units_current` and `pos_units_current` for all visible companies and the browser filters by company. Revisit if a tenant ever has many thousands of units.
 
 ---
 
@@ -295,4 +301,5 @@ Shared notes (generated types, `cacheComponents`, language fallback) are in `HRI
 | Close functions | `008_close_unit.sql` |
 | Reorg functions | `009_reorg.sql` |
 | Public views, read functions, privileges | `010_read_layer.sql` |
+| `parent_companies` and `hierarchy_levels` views | `011_catalog_read_views.sql` |
 | Behaviour proven by tests | `supabase/tests/` (`009_010_reorg_read_layer_test.sql` for reorg and the read layer) |
