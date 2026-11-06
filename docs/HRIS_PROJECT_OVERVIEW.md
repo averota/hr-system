@@ -18,7 +18,8 @@ An all-in-one HRIS platform covering human resources, employee profile, leave ma
 
 | Module | Code | Scope | State | Documents |
 |---|---|---|---|---|
-| Organization structure | `ORG` | Org tree, position tree, job catalog, Department eligibility, approved headcount allocation | Database complete (ORG Stages 0 to 7). Read-only frontend complete (Stages 8a to 8d). Roles stored and permission check built (Stages 9a to 9b). Write wrappers are next (Stage 9c) | `HRIS_ORG_STATUS.md`, `HRIS_ORG_FRONTEND_REFERENCE.md` |
+| Organization structure | `ORG` | Org tree, position tree, job catalog, Department eligibility, approved headcount allocation | Stages 0 to 9i complete (database, frontend with write screens, permissions, history of closed records). Stage 9j (name history, migration `026`) written, not yet tested. Stage 9k (history reads, migration `027`) planned | `HRIS_ORG_STATUS.md`, `HRIS_ORG_FRONTEND_REFERENCE.md` |
+| Members, roles and setup | code to be chosen | Create tenant, company and membership; give and remove roles; members screen | Planning document first, then code (`HRIS_ORG_STATUS.md`, section 6, Next plan). Last tenant admin guard (`025`) written, not yet tested | none yet |
 | Employee profile | not assigned | Not started. Scope not discussed yet. Hiring, transfers and promotions linked to ORG allocations were noted earlier as "employee hooks" and belong here, not in ORG | Not started | none |
 | Leave management | not assigned | Not started. Scope not discussed yet | Not started | none |
 | Attendance | not assigned | Not started. Scope not discussed yet | Not started | none |
@@ -102,8 +103,9 @@ Starting a module: choose a short uppercase code, add it to this table, then cre
 | `001_tenancy.sql` | `001_tenancy_test.sql` | `tenant`, `parent_company`, `tenant_member`, `private.user_tenant_ids()`, RLS, read-only grants |
 | `012_roles.sql` | `012_roles_test.sql` | Role tables, seeded roles and permission codes, scope guard, RLS (built in ORG Stage 9b-1) |
 | `013_has_permission.sql` | `013_has_permission_test.sql` | `private.has_permission`, `private.has_tenant_permission` (built in ORG Stage 9b-2) |
+| `025_last_tenant_admin_guard.sql` | `025_last_tenant_admin_guard_test.sql` | Trigger that refuses deleting or downgrading the last tenant-wide `tenant_admin` (written, not yet tested) |
 
-Migrations `002` to `011` are listed in the ORG status document, which also lists `012` and `013` (platform-wide, but built during ORG Stage 9).
+The ORG status document lists every other migration (`002` to `011`, `014` to `024`, `026`) and also `012` and `013` (platform-wide, but built during ORG Stage 9).
 
 ### 5.4 Frontend access model (all modules)
 | Question | Answer |
@@ -142,6 +144,7 @@ Built in migrations `012` and `013`. The ORG permission codes are listed in `HRI
 | Reads | Not governed by roles yet. `org.read` exists but nothing checks it | Your decisions |
 | Visibility of assignments | A user sees only their own. Who may see all of a tenant's assignments is decided with the members screen | Adopted |
 | `members.manage` | Tenant-wide only. A company-scoped `tenant_admin` cannot manage members | Assumption |
+| Last tenant administrator | A tenant must keep at least one tenant-wide `tenant_admin`. A trigger (`025`) refuses deleting or downgrading the last one, also through removing the member or the auth user. Applies to everyone, including `service_role`. A user may remove their own admin role while another admin exists. A whole tenant can be deleted only after `select set_config('hris.tenant_teardown', 'on', true);` in the same transaction | Your decisions (written, not yet tested) |
 | State | Stored and tested. No function or screen uses the check yet | |
 
 ---
@@ -160,7 +163,10 @@ Built in migrations `012` and `013`. The ORG permission codes are listed in `HRI
 ## 7. Open items for you (project-wide)
 
 - Delete the `app/test-supabase/` folder if not already done.
-- A way to create tenants, companies, members and role assignments does not exist yet (done by hand with `service_role`). Protecting the last `tenant_admin` from removal is also open.
+- Run the tests for `025` and `026` (see `HRIS_ORG_STATUS.md`, section 6, Next plan).
+- A way to create tenants, companies, members and role assignments does not exist yet (done by hand with `service_role`). The planning document for it is the next platform step. Protecting the last `tenant_admin` (`025`) is written and waiting for its test.
+- No production Supabase project and no Vercel deployment yet. Set them up, with a migration deploy process, before many more migrations pile up.
+- Sections 5.2, 5.4 and 5.7 (State) still say that frontend writes are not built and roles are not enforced. Migrations `014` to `022` changed that. Update them together with the Members, roles and setup planning.
 
 Module-specific open items are in each module's status document.
 
