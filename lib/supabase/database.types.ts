@@ -17,6 +17,25 @@ export type Database = {
       [_ in never]: never
     }
     Views: {
+      company_level_rules_closed: {
+        Row: {
+          company_id: number | null
+          level_code: string | null
+          level_id: number | null
+          level_name_en: string | null
+          level_name_km: string | null
+          level_rank: number | null
+          parent_level_code: string | null
+          parent_level_id: number | null
+          parent_level_name_en: string | null
+          parent_level_name_km: string | null
+          rule_id: number | null
+          tree: string | null
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Relationships: []
+      }
       company_level_rules_current: {
         Row: {
           company_id: number | null
@@ -68,6 +87,20 @@ export type Database = {
         }
         Relationships: []
       }
+      job_positions_closed: {
+        Row: {
+          company_id: number | null
+          department_id: number | null
+          department_name_en: string | null
+          department_name_km: string | null
+          job_position_id: number | null
+          name_en: string | null
+          name_km: string | null
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Relationships: []
+      }
       job_positions_current: {
         Row: {
           company_id: number | null
@@ -95,6 +128,21 @@ export type Database = {
         }
         Relationships: []
       }
+      org_unit_departments_closed: {
+        Row: {
+          company_id: number | null
+          department_id: number | null
+          department_name_en: string | null
+          department_name_km: string | null
+          eligibility_id: number | null
+          org_unit_id: number | null
+          org_unit_name_en: string | null
+          org_unit_name_km: string | null
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Relationships: []
+      }
       org_unit_departments_current: {
         Row: {
           company_id: number | null
@@ -116,6 +164,25 @@ export type Database = {
           eligibility_id?: number | null
           org_unit_id?: number | null
           valid_from?: string | null
+        }
+        Relationships: []
+      }
+      org_units_closed: {
+        Row: {
+          company_id: number | null
+          level_code: string | null
+          level_id: number | null
+          level_name_en: string | null
+          level_name_km: string | null
+          level_rank: number | null
+          name_en: string | null
+          name_km: string | null
+          parent_name_en: string | null
+          parent_name_km: string | null
+          parent_unit_id: number | null
+          unit_id: number | null
+          valid_from: string | null
+          valid_to: string | null
         }
         Relationships: []
       }
@@ -159,6 +226,25 @@ export type Database = {
         }
         Relationships: []
       }
+      pos_units_closed: {
+        Row: {
+          company_id: number | null
+          level_code: string | null
+          level_id: number | null
+          level_name_en: string | null
+          level_name_km: string | null
+          level_rank: number | null
+          name_en: string | null
+          name_km: string | null
+          parent_name_en: string | null
+          parent_name_km: string | null
+          parent_unit_id: number | null
+          unit_id: number | null
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Relationships: []
+      }
       pos_units_current: {
         Row: {
           company_id: number | null
@@ -172,6 +258,29 @@ export type Database = {
           parent_unit_id: number | null
           unit_id: number | null
           valid_from: string | null
+        }
+        Relationships: []
+      }
+      position_allocations_closed: {
+        Row: {
+          allocation_id: number | null
+          approved_headcount: number | null
+          company_id: number | null
+          department_id: number | null
+          department_name_en: string | null
+          department_name_km: string | null
+          job_name_en: string | null
+          job_name_km: string | null
+          job_position_id: number | null
+          org_unit_id: number | null
+          org_unit_name_en: string | null
+          org_unit_name_km: string | null
+          pos_level_code: string | null
+          pos_unit_id: number | null
+          pos_unit_name_en: string | null
+          pos_unit_name_km: string | null
+          valid_from: string | null
+          valid_to: string | null
         }
         Relationships: []
       }

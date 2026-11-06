@@ -10,21 +10,48 @@ import type {
   HierarchyLevel,
   ParentCompany,
   PositionAllocation,
-  TreeKind,
   UnitRow,
 } from "@/modules/org/types";
 import { AllocationForm } from "./AllocationForm";
+import { ClosedAllocations } from "./ClosedAllocations";
+import { ClosedJobs } from "./ClosedJobs";
+import { ClosedListings } from "./ClosedListings";
+import { ClosedRules } from "./ClosedRules";
+import { ClosedUnits } from "./ClosedUnits";
+import { DepartmentListings } from "./DepartmentListings";
 import { HeadcountGrid } from "./HeadcountGrid";
+import { HierarchyConfig } from "./HierarchyConfig";
+import { HistoryToggle } from "./HistoryToggle";
+import { JobCatalog } from "./JobCatalog";
 import { OrgTreeExplorer } from "./OrgTreeExplorer";
 
-type TabId = "config" | "org-tree" | "pos-tree" | "allocation" | "headcount";
+type TabId =
+  | "config"
+  | "org-tree"
+  | "pos-tree"
+  | "jobs"
+  | "listings"
+  | "allocation"
+  | "headcount";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "config", label: "Configuration" },
   { id: "org-tree", label: "Org tree" },
   { id: "pos-tree", label: "Position tree" },
+  { id: "jobs", label: "Jobs" },
+  { id: "listings", label: "Department listings" },
   { id: "allocation", label: "Allocation form" },
   { id: "headcount", label: "Headcount" },
+];
+
+// Tabs that can switch to a closed (history) view.
+const HISTORY_TABS: TabId[] = [
+  "config",
+  "org-tree",
+  "pos-tree",
+  "jobs",
+  "listings",
+  "headcount",
 ];
 
 interface OrgConfigViewProps {
@@ -49,6 +76,7 @@ export function OrgConfigView({
   const router = useRouter();
   const [locale, setLocale] = useState<Locale>("en");
   const [activeTab, setActiveTab] = useState<TabId>("config");
+  const [showHistory, setShowHistory] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(
     companies[0]?.company_id ?? null
   );
@@ -62,115 +90,19 @@ export function OrgConfigView({
     router.refresh();
   }
 
+  function selectTab(tab: TabId) {
+    setActiveTab(tab);
+    setShowHistory(false);
+  }
+
   const companyRules = rules.filter((r) => r.company_id === selectedCompanyId);
   const companyOrgUnits = orgUnits.filter((u) => u.company_id === selectedCompanyId);
   const companyPosUnits = posUnits.filter((u) => u.company_id === selectedCompanyId);
+  // Departments are the position units with no parent.
+  const companyDepartments = companyPosUnits.filter((u) => u.parent_unit_id === null);
   const companyAllocations = allocations.filter(
     (a) => a.company_id === selectedCompanyId
   );
-
-  function renderTreeTable(tree: TreeKind, title: string, rootLabel: string) {
-    const treeLevels = levels
-      .filter((l) => l.tree === tree)
-      .sort((a, b) => a.rank - b.rank);
-
-    return (
-      <section className="rounded-lg border border-zinc-200 bg-white shadow-sm">
-        <div className="border-b border-zinc-200 px-4 py-3">
-          <h2 className="text-base font-semibold text-zinc-900">{title}</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-zinc-200 bg-zinc-50 text-xs uppercase text-zinc-600">
-              <tr>
-                <th className="px-4 py-2.5">Rank</th>
-                <th className="px-4 py-2.5">Level</th>
-                <th className="px-4 py-2.5">Code</th>
-                <th className="px-4 py-2.5">Status</th>
-                <th className="px-4 py-2.5">Allowed Parent(s)</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-200">
-              {treeLevels.map((level) => {
-                const activeRules = companyRules.filter(
-                  (r) => r.level_id === level.level_id
-                );
-                const isEnabled = activeRules.length > 0;
-
-                return (
-                  <tr key={level.level_id} className="align-top">
-                    <td className="px-4 py-3 font-mono text-xs text-zinc-500">
-                      {level.rank}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-zinc-900">
-                        {displayName(locale, level.name_en, level.name_km)}
-                      </div>
-                      <div className="mt-0.5 flex gap-1.5 text-xs text-zinc-500">
-                        {level.is_required && (
-                          <span className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-800">
-                            Required
-                          </span>
-                        )}
-                        {level.can_be_root && (
-                          <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-zinc-700">
-                            Can be root
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs text-zinc-600">
-                      {level.code}
-                    </td>
-                    <td className="px-4 py-3">
-                      {isEnabled ? (
-                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
-                          Enabled
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-600">
-                          Disabled
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-zinc-700">
-                      {!isEnabled ? (
-                        <span className="text-zinc-400">
-                          Not enabled for this company
-                        </span>
-                      ) : (
-                        <ul className="space-y-1">
-                          {activeRules.map((rule) => (
-                            <li
-                              key={rule.rule_id}
-                              className="flex flex-wrap items-center gap-2"
-                            >
-                              <span>
-                                {rule.parent_level_id === null
-                                  ? rootLabel
-                                  : `Under ${displayName(
-                                      locale,
-                                      rule.parent_level_name_en ?? "",
-                                      rule.parent_level_name_km
-                                    )}`}
-                              </span>
-                              <span className="text-xs text-zinc-400">
-                                (since {rule.valid_from})
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -264,7 +196,7 @@ export function OrgConfigView({
                 type="button"
                 role="tab"
                 aria-selected={activeTab === tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => selectTab(tab.id)}
                 className={`border-b-2 px-3 py-2 text-sm font-medium ${
                   activeTab === tab.id
                     ? "border-zinc-900 text-zinc-900"
@@ -291,66 +223,114 @@ export function OrgConfigView({
           </div>
         ) : (
           <>
-            {activeTab === "config" && (
-              <>
-                <div>
-                  <h1 className="text-lg font-semibold text-zinc-900">
-                    Hierarchy Configuration (Read-Only)
-                  </h1>
-                  <p className="mt-0.5 text-sm text-zinc-600">
-                    Active levels and allowed parent-child rules configured for the
-                    selected company.
-                  </p>
-                </div>
-
-                <div className="grid gap-6 lg:grid-cols-2">
-                  {renderTreeTable(
-                    "org",
-                    "Organization Structure Levels (org)",
-                    "Directly under Parent Company"
-                  )}
-                  {renderTreeTable(
-                    "pos",
-                    "Position Structure Levels (pos)",
-                    "Top of Position Tree (Root)"
-                  )}
-                </div>
-              </>
+            {HISTORY_TABS.includes(activeTab) && (
+              <div className="flex justify-end">
+                <HistoryToggle showHistory={showHistory} onChange={setShowHistory} />
+              </div>
             )}
 
-            {activeTab === "org-tree" && (
-              <OrgTreeExplorer
-                key={`org-${selectedCompanyId}`}
-                title="Organization Tree"
-                description="Open org units under the selected company."
-                emptyText="No org units exist for this company yet."
-                units={companyOrgUnits}
-                locale={locale}
-                manage={{
-                  tree: "org",
-                  companyId: selectedCompanyId,
-                  levels,
-                  rules: companyRules,
-                }}
-              />
-            )}
+            {activeTab === "config" &&
+              (showHistory ? (
+                <ClosedRules
+                  key={`closed-cfg-${selectedCompanyId}`}
+                  companyId={selectedCompanyId}
+                  locale={locale}
+                />
+              ) : (
+                <HierarchyConfig
+                  key={`cfg-${selectedCompanyId}`}
+                  companyId={selectedCompanyId}
+                  levels={levels}
+                  rules={companyRules}
+                  locale={locale}
+                />
+              ))}
 
-            {activeTab === "pos-tree" && (
-              <OrgTreeExplorer
-                key={`pos-${selectedCompanyId}`}
-                title="Position Tree"
-                description="Open Departments and the Offices, Sections and Groups below them."
-                emptyText="No Departments or position units exist for this company yet."
-                units={companyPosUnits}
-                locale={locale}
-                manage={{
-                  tree: "pos",
-                  companyId: selectedCompanyId,
-                  levels,
-                  rules: companyRules,
-                }}
-              />
-            )}
+            {activeTab === "org-tree" &&
+              (showHistory ? (
+                <ClosedUnits
+                  key={`closed-org-${selectedCompanyId}`}
+                  tree="org"
+                  companyId={selectedCompanyId}
+                  locale={locale}
+                />
+              ) : (
+                <OrgTreeExplorer
+                  key={`org-${selectedCompanyId}`}
+                  title="Organization Tree"
+                  description="Open org units under the selected company."
+                  emptyText="No org units exist for this company yet."
+                  units={companyOrgUnits}
+                  locale={locale}
+                  manage={{
+                    tree: "org",
+                    companyId: selectedCompanyId,
+                    levels,
+                    rules: companyRules,
+                  }}
+                />
+              ))}
+
+            {activeTab === "pos-tree" &&
+              (showHistory ? (
+                <ClosedUnits
+                  key={`closed-pos-${selectedCompanyId}`}
+                  tree="pos"
+                  companyId={selectedCompanyId}
+                  locale={locale}
+                />
+              ) : (
+                <OrgTreeExplorer
+                  key={`pos-${selectedCompanyId}`}
+                  title="Position Tree"
+                  description="Open Departments and the Offices, Sections and Groups below them."
+                  emptyText="No Departments or position units exist for this company yet."
+                  units={companyPosUnits}
+                  locale={locale}
+                  manage={{
+                    tree: "pos",
+                    companyId: selectedCompanyId,
+                    levels,
+                    rules: companyRules,
+                  }}
+                />
+              ))}
+
+            {activeTab === "jobs" &&
+              (showHistory ? (
+                <ClosedJobs
+                  key={`closed-jobs-${selectedCompanyId}`}
+                  companyId={selectedCompanyId}
+                  locale={locale}
+                />
+              ) : (
+                <JobCatalog
+                  key={`jobs-${selectedCompanyId}`}
+                  companyId={selectedCompanyId}
+                  departments={companyDepartments}
+                  allocations={companyAllocations}
+                  locale={locale}
+                />
+              ))}
+
+            {activeTab === "listings" &&
+              (showHistory ? (
+                <ClosedListings
+                  key={`closed-listings-${selectedCompanyId}`}
+                  companyId={selectedCompanyId}
+                  locale={locale}
+                />
+              ) : (
+                <DepartmentListings
+                  key={`listings-${selectedCompanyId}`}
+                  companyId={selectedCompanyId}
+                  levels={levels}
+                  orgUnits={companyOrgUnits}
+                  departments={companyDepartments}
+                  allocations={companyAllocations}
+                  locale={locale}
+                />
+              ))}
 
             {activeTab === "allocation" && (
               <AllocationForm
@@ -361,15 +341,23 @@ export function OrgConfigView({
               />
             )}
 
-            {activeTab === "headcount" && (
-              <HeadcountGrid
-                key={`hc-${selectedCompanyId}`}
-                companyId={selectedCompanyId}
-                allocations={companyAllocations}
-                levels={levels}
-                locale={locale}
-              />
-            )}
+            {activeTab === "headcount" &&
+              (showHistory ? (
+                <ClosedAllocations
+                  key={`closed-hc-${selectedCompanyId}`}
+                  companyId={selectedCompanyId}
+                  levels={levels}
+                  locale={locale}
+                />
+              ) : (
+                <HeadcountGrid
+                  key={`hc-${selectedCompanyId}`}
+                  companyId={selectedCompanyId}
+                  allocations={companyAllocations}
+                  levels={levels}
+                  locale={locale}
+                />
+              ))}
           </>
         )}
       </main>

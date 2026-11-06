@@ -86,3 +86,81 @@ export interface PositionAllocation {
   approved_headcount: number;
   valid_from: string;
 }
+export interface JobRow {
+  job_position_id: number;
+  company_id: number;
+  department_id: number;
+  name_en: string;
+  name_km: string | null;
+  valid_from: string;
+}
+
+export interface ListingRow {
+  eligibility_id: number;
+  company_id: number;
+  org_unit_id: number;
+  department_id: number;
+  valid_from: string;
+}
+
+export interface ClosedRuleRow {
+  rule_id: number;
+  company_id: number;
+  tree: TreeKind;
+  level_id: number;
+  level_rank: number;
+  level_name_en: string;
+  level_name_km: string | null;
+  parent_level_id: number | null;
+  parent_level_name_en: string | null;
+  parent_level_name_km: string | null;
+  valid_from: string;
+  valid_to: string;
+}
+
+export interface ClosedUnitRow {
+  unit_id: number;
+  company_id: number;
+  level_id: number;
+  level_rank: number;
+  level_name_en: string;
+  level_name_km: string | null;
+  name_en: string;
+  name_km: string | null;
+  /** The parent it had when it closed. Null = directly under the company, or a Department. */
+  parent_unit_id: number | null;
+  parent_name_en: string | null;
+  parent_name_km: string | null;
+  valid_from: string;
+  valid_to: string;
+}
+
+/** A closed allocation (headcount history). Same fields as PositionAllocation plus the end date. */
+export interface ClosedAllocationRow extends PositionAllocation {
+  valid_to: string;
+}
+
+export interface ClosedJobRow {
+  job_position_id: number;
+  company_id: number;
+  department_id: number;
+  department_name_en: string;
+  department_name_km: string | null;
+  name_en: string;
+  name_km: string | null;
+  valid_from: string;
+  valid_to: string;
+}
+
+export interface ClosedListingRow {
+  eligibility_id: number;
+  company_id: number;
+  org_unit_id: number;
+  org_unit_name_en: string;
+  org_unit_name_km: string | null;
+  department_id: number;
+  department_name_en: string;
+  department_name_km: string | null;
+  valid_from: string;
+  valid_to: string;
+}

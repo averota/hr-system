@@ -10,6 +10,9 @@ import { createClient } from "@/lib/supabase/client";
 export const PERM_ALLOCATION_WRITE = "org.allocation.write";
 export const PERM_ORG_UNIT_WRITE = "org.unit.write";
 export const PERM_POS_UNIT_WRITE = "pos.unit.write";
+export const PERM_JOB_WRITE = "pos.job.write";
+export const PERM_ELIGIBILITY_WRITE = "org.eligibility.write";
+export const PERM_CONFIG_WRITE = "org.config.write";
 
 // The database refuses more than 500 targets per call.
 const MAX_TARGETS_PER_CALL = 500;
