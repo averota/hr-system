@@ -1,9 +1,32 @@
 // modules/org/components/OrgTreeExplorer.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { displayName, type Locale } from "@/lib/i18n";
-import type { UnitRow } from "@/modules/org/types";
+import {
+  PERM_ORG_UNIT_WRITE,
+  PERM_POS_UNIT_WRITE,
+  usePermissions,
+  type PermissionTarget,
+} from "@/modules/org/permissions";
+import type {
+  CompanyLevelRule,
+  HierarchyLevel,
+  TreeKind,
+  UnitRow,
+} from "@/modules/org/types";
+import { childLevelRules, departmentIdOf, moveTargets } from "@/modules/org/unitTree";
+import { UnitActionDialog, type UnitAction } from "./UnitActionDialog";
+
+/** Turns on the add, rename, move and close buttons. Leave it out for a read-only tree. */
+export interface TreeManageOptions {
+  tree: TreeKind;
+  companyId: number;
+  levels: HierarchyLevel[];
+  /** The selected company's open rules. */
+  rules: CompanyLevelRule[];
+}
 
 interface OrgTreeExplorerProps {
   title: string;
@@ -11,6 +34,7 @@ interface OrgTreeExplorerProps {
   emptyText: string;
   units: UnitRow[];
   locale: Locale;
+  manage?: TreeManageOptions;
 }
 
 interface TreeNodeProps {
@@ -19,9 +43,35 @@ interface TreeNodeProps {
   expanded: Set<number>;
   onToggle: (id: number) => void;
   locale: Locale;
+  renderActions: (unit: UnitRow) => ReactNode;
 }
 
-function TreeNode({ unit, childrenOf, expanded, onToggle, locale }: TreeNodeProps) {
+interface OpenDialog {
+  action: UnitAction;
+  unit: UnitRow | null;
+  parent: UnitRow | null;
+}
+
+/**
+ * Where the permission is checked for a unit (see HRIS_ORG_FRONTEND_REFERENCE.md, 8.2).
+ * Org tree: the unit. Position tree: the unit's Department. A Department itself,
+ * and a new top-level unit, need a company-wide or tenant-wide role (empty target).
+ */
+function selfTarget(tree: TreeKind, units: UnitRow[], u: UnitRow): PermissionTarget {
+  if (tree === "org") return { orgUnitId: u.unit_id };
+  return u.parent_unit_id === null ? {} : { departmentId: departmentIdOf(units, u.unit_id) };
+}
+
+/** Where the permission is checked for adding a unit under `u`. */
+function createTarget(tree: TreeKind, units: UnitRow[], u: UnitRow): PermissionTarget {
+  if (tree === "org") return { orgUnitId: u.unit_id };
+  return { departmentId: departmentIdOf(units, u.unit_id) };
+}
+
+const actionButtonClass =
+  "rounded border border-zinc-300 bg-white px-2 py-0.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50";
+
+function TreeNode({ unit, childrenOf, expanded, onToggle, locale, renderActions }: TreeNodeProps) {
   const kids = childrenOf.get(unit.unit_id) ?? [];
   const isOpen = expanded.has(unit.unit_id);
 
@@ -50,6 +100,7 @@ function TreeNode({ unit, childrenOf, expanded, onToggle, locale }: TreeNodeProp
           <span className="text-xs text-zinc-400">{kids.length} under</span>
         )}
         <span className="text-xs text-zinc-400">since {unit.valid_from}</span>
+        {renderActions(unit)}
       </div>
       {kids.length > 0 && isOpen && (
         <ul className="ml-2.5 border-l border-zinc-200 pl-3">
@@ -61,6 +112,7 @@ function TreeNode({ unit, childrenOf, expanded, onToggle, locale }: TreeNodeProp
               expanded={expanded}
               onToggle={onToggle}
               locale={locale}
+              renderActions={renderActions}
             />
           ))}
         </ul>
@@ -70,7 +122,9 @@ function TreeNode({ unit, childrenOf, expanded, onToggle, locale }: TreeNodeProp
 }
 
 /**
- * Read-only expandable tree of open units. Works for both the org tree and the position tree.
+ * Expandable tree of open units. Works for both the org tree and the position tree.
+ * With `manage`, each unit gets add, rename, move and close buttons, shown only where
+ * the user is allowed (check_permissions). The database checks every write again.
  * Give it a `key` that includes the company id so the open/closed state resets on company change.
  */
 export function OrgTreeExplorer({
@@ -79,7 +133,9 @@ export function OrgTreeExplorer({
   emptyText,
   units,
   locale,
+  manage,
 }: OrgTreeExplorerProps) {
+  const router = useRouter();
   const { roots, childrenOf, branchIds } = useMemo(() => {
     const map = new Map<number | null, UnitRow[]>();
     for (const u of units) {
@@ -100,6 +156,25 @@ export function OrgTreeExplorer({
   const [expanded, setExpanded] = useState<Set<number>>(
     () => new Set(roots.map((r) => r.unit_id))
   );
+  const [dialog, setDialog] = useState<OpenDialog | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // One batched permission check for every unit on the screen.
+  const tree = manage?.tree;
+  const permissionTargets = useMemo(() => {
+    if (!tree) return [];
+    const list: PermissionTarget[] = [{}]; // adding a top-level unit
+    for (const u of units) {
+      list.push(selfTarget(tree, units, u));
+      list.push(createTarget(tree, units, u));
+    }
+    return list;
+  }, [tree, units]);
+  const permission = usePermissions(
+    manage?.companyId ?? 0,
+    tree === "pos" ? PERM_POS_UNIT_WRITE : PERM_ORG_UNIT_WRITE,
+    permissionTargets
+  );
 
   function toggle(id: number) {
     setExpanded((prev) => {
@@ -110,6 +185,84 @@ export function OrgTreeExplorer({
     });
   }
 
+  function openDialog(next: OpenDialog) {
+    setNotice(null);
+    setDialog(next);
+  }
+
+  function handleDone(message: string) {
+    const parent = dialog?.action === "create" ? dialog.parent : null;
+    if (parent) setExpanded((prev) => new Set(prev).add(parent.unit_id));
+    setDialog(null);
+    setNotice(message);
+    router.refresh(); // reload units from the database
+  }
+
+  function renderActions(u: UnitRow): ReactNode {
+    if (!manage) return null;
+
+    const self = selfTarget(manage.tree, units, u);
+    const canSelf = permission.can(self.orgUnitId, self.departmentId);
+    const under = createTarget(manage.tree, units, u);
+    const canAdd =
+      permission.can(under.orgUnitId, under.departmentId) &&
+      childLevelRules(manage.tree, u, manage.rules).length > 0;
+
+    let canMove = false;
+    if (canSelf) {
+      const t = moveTargets(manage.tree, u, units, manage.rules);
+      canMove = t.rootAllowed || t.parents.length > 0;
+    }
+
+    if (!canAdd && !canSelf) return null;
+
+    return (
+      <span className="ml-auto flex items-center gap-1.5">
+        {canAdd && (
+          <button
+            type="button"
+            onClick={() => openDialog({ action: "create", unit: null, parent: u })}
+            className={actionButtonClass}
+          >
+            Add
+          </button>
+        )}
+        {canSelf && (
+          <button
+            type="button"
+            onClick={() => openDialog({ action: "rename", unit: u, parent: null })}
+            className={actionButtonClass}
+          >
+            Rename
+          </button>
+        )}
+        {canMove && (
+          <button
+            type="button"
+            onClick={() => openDialog({ action: "move", unit: u, parent: null })}
+            className={actionButtonClass}
+          >
+            Move
+          </button>
+        )}
+        {canSelf && (
+          <button
+            type="button"
+            onClick={() => openDialog({ action: "close", unit: u, parent: null })}
+            className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-xs font-medium text-red-700 hover:bg-red-50"
+          >
+            Close
+          </button>
+        )}
+      </span>
+    );
+  }
+
+  const canAddTop =
+    manage !== undefined &&
+    permission.can(undefined, undefined) &&
+    childLevelRules(manage.tree, null, manage.rules).length > 0;
+
   return (
     <section className="rounded-lg border border-zinc-200 bg-white shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-200 px-4 py-3">
@@ -117,26 +270,46 @@ export function OrgTreeExplorer({
           <h2 className="text-base font-semibold text-zinc-900">{title}</h2>
           <p className="mt-0.5 text-sm text-zinc-600">{description}</p>
         </div>
-        {units.length > 0 && (
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-zinc-500">{units.length} open units</span>
+        <div className="flex items-center gap-2 text-xs">
+          {canAddTop && (
             <button
               type="button"
-              onClick={() => setExpanded(new Set(branchIds))}
-              className="rounded-md border border-zinc-300 px-2.5 py-1 font-medium text-zinc-700 hover:bg-zinc-50"
+              onClick={() => openDialog({ action: "create", unit: null, parent: null })}
+              className="rounded-md bg-zinc-900 px-2.5 py-1 font-medium text-white hover:bg-zinc-800"
             >
-              Expand all
+              Add top-level unit
             </button>
-            <button
-              type="button"
-              onClick={() => setExpanded(new Set())}
-              className="rounded-md border border-zinc-300 px-2.5 py-1 font-medium text-zinc-700 hover:bg-zinc-50"
-            >
-              Collapse all
-            </button>
-          </div>
-        )}
+          )}
+          {units.length > 0 && (
+            <>
+              <span className="text-zinc-500">{units.length} open units</span>
+              <button
+                type="button"
+                onClick={() => setExpanded(new Set(branchIds))}
+                className="rounded-md border border-zinc-300 px-2.5 py-1 font-medium text-zinc-700 hover:bg-zinc-50"
+              >
+                Expand all
+              </button>
+              <button
+                type="button"
+                onClick={() => setExpanded(new Set())}
+                className="rounded-md border border-zinc-300 px-2.5 py-1 font-medium text-zinc-700 hover:bg-zinc-50"
+              >
+                Collapse all
+              </button>
+            </>
+          )}
+        </div>
       </div>
+
+      {notice && (
+        <p
+          role="status"
+          className="mx-4 mt-4 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
+        >
+          {notice}
+        </p>
+      )}
 
       <div className="p-4">
         {units.length === 0 ? (
@@ -153,11 +326,29 @@ export function OrgTreeExplorer({
                 expanded={expanded}
                 onToggle={toggle}
                 locale={locale}
+                renderActions={renderActions}
               />
             ))}
           </ul>
         )}
       </div>
+
+      {dialog && manage && (
+        <UnitActionDialog
+          key={`${dialog.action}-${dialog.unit?.unit_id ?? "new"}-${dialog.parent?.unit_id ?? "top"}`}
+          tree={manage.tree}
+          companyId={manage.companyId}
+          levels={manage.levels}
+          rules={manage.rules}
+          units={units}
+          locale={locale}
+          action={dialog.action}
+          unit={dialog.unit}
+          parent={dialog.parent}
+          onCancel={() => setDialog(null)}
+          onDone={handleDone}
+        />
+      )}
     </section>
   );
 }

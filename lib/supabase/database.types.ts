@@ -199,6 +199,100 @@ export type Database = {
       }
     }
     Functions: {
+      add_department_listing: {
+        Args: {
+          p_company_id: number
+          p_department_id: number
+          p_org_unit_id: number
+          p_start_date?: string
+        }
+        Returns: number
+      }
+      change_allocation_headcount: {
+        Args: {
+          p_allocation_id: number
+          p_company_id: number
+          p_effective_date?: string
+          p_new_headcount: number
+        }
+        Returns: number
+      }
+      check_permissions: {
+        Args: {
+          p_company_id: number
+          p_permission_code: string
+          p_targets?: Json
+        }
+        Returns: {
+          allowed: boolean
+          department_id: number
+          org_unit_id: number
+        }[]
+      }
+      close_allocation: {
+        Args: {
+          p_allocation_id: number
+          p_close_date?: string
+          p_company_id: number
+        }
+        Returns: undefined
+      }
+      close_job_position: {
+        Args: { p_close_date?: string; p_company_id: number; p_job_id: number }
+        Returns: undefined
+      }
+      close_org_unit: {
+        Args: { p_close_date?: string; p_company_id: number; p_unit_id: number }
+        Returns: undefined
+      }
+      close_pos_unit: {
+        Args: { p_close_date?: string; p_company_id: number; p_unit_id: number }
+        Returns: undefined
+      }
+      create_allocation: {
+        Args: {
+          p_company_id: number
+          p_headcount: number
+          p_job_position_id: number
+          p_org_unit_id: number
+          p_pos_unit_id: number
+          p_start_date?: string
+        }
+        Returns: number
+      }
+      create_job_position: {
+        Args: {
+          p_company_id: number
+          p_department_id: number
+          p_name_en: string
+          p_name_km?: string
+        }
+        Returns: number
+      }
+      create_org_unit: {
+        Args: {
+          p_company_id: number
+          p_level_id: number
+          p_name_en: string
+          p_name_km?: string
+          p_parent_unit_id: number
+        }
+        Returns: number
+      }
+      create_pos_unit: {
+        Args: {
+          p_company_id: number
+          p_level_id: number
+          p_name_en: string
+          p_name_km?: string
+          p_parent_unit_id: number
+        }
+        Returns: number
+      }
+      disable_level_rule: {
+        Args: { p_close_date?: string; p_company_id: number; p_rule_id: number }
+        Returns: undefined
+      }
       eligible_departments: {
         Args: { p_company_id: number; p_org_unit_id: number }
         Returns: {
@@ -221,6 +315,14 @@ export type Database = {
           name_km: string
         }[]
       }
+      enable_level_rule: {
+        Args: {
+          p_company_id: number
+          p_level_id: number
+          p_parent_level_id?: number
+        }
+        Returns: number
+      }
       org_options: {
         Args: { p_company_id: number; p_parent_unit_id?: number }
         Returns: {
@@ -240,6 +342,60 @@ export type Database = {
           name_km: string
           unit_id: number
         }[]
+      }
+      remove_department_listing: {
+        Args: {
+          p_close_date?: string
+          p_company_id: number
+          p_department_id: number
+          p_org_unit_id: number
+        }
+        Returns: undefined
+      }
+      rename_job_position: {
+        Args: {
+          p_company_id: number
+          p_job_id: number
+          p_name_en: string
+          p_name_km?: string
+        }
+        Returns: undefined
+      }
+      rename_org_unit: {
+        Args: {
+          p_company_id: number
+          p_name_en: string
+          p_name_km?: string
+          p_unit_id: number
+        }
+        Returns: undefined
+      }
+      rename_pos_unit: {
+        Args: {
+          p_company_id: number
+          p_name_en: string
+          p_name_km?: string
+          p_unit_id: number
+        }
+        Returns: undefined
+      }
+      reorg_org_unit: {
+        Args: {
+          p_company_id: number
+          p_effective_date?: string
+          p_new_parent_id: number
+          p_unit_id: number
+        }
+        Returns: undefined
+      }
+      reorg_pos_unit: {
+        Args: {
+          p_company_id: number
+          p_effective_date?: string
+          p_new_parent_id: number
+          p_unit_id: number
+        }
+        Returns: undefined
       }
     }
     Enums: {

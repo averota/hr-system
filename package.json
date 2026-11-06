@@ -6,12 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test": "npx tsc --noEmit",
     "lint": "eslint",
-    "gen:types": "supabase gen types typescript --linked --schema public > lib/supabase/database.types.ts"
+    "push:db": "npx supabase db push --remote",
+    "gen:types": "supabase gen types typescript --remote --schema public > lib/supabase/database.types.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.119.0",
+    "lucide-react": "^1.69.0",
     "next": "16.4.5",
     "react": "19.3.0",
     "react-dom": "19.3.0"

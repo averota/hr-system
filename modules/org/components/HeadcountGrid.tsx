@@ -2,11 +2,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { displayName, type Locale } from "@/lib/i18n";
+import { PERM_ALLOCATION_WRITE, usePermissions } from "@/modules/org/permissions";
 import type { HierarchyLevel, PositionAllocation } from "@/modules/org/types";
+import {
+  AllocationActionDialog,
+  type AllocationAction,
+} from "./AllocationActionDialog";
 import { selectClassName } from "./AsyncSelect";
 
 interface HeadcountGridProps {
+  companyId: number;
   allocations: PositionAllocation[];
   levels: HierarchyLevel[];
   locale: Locale;
@@ -17,6 +24,11 @@ interface FilterOption {
   label: string;
 }
 
+interface OpenDialog {
+  allocation: PositionAllocation;
+  action: AllocationAction;
+}
+
 function uniqueOptions(items: FilterOption[], collator: Intl.Collator): FilterOption[] {
   const map = new Map<number, FilterOption>();
   for (const item of items) map.set(item.id, item);
@@ -24,13 +36,28 @@ function uniqueOptions(items: FilterOption[], collator: Intl.Collator): FilterOp
 }
 
 /**
- * Read-only table of open allocations. The parent passes only the selected company's rows.
+ * Table of open allocations with change-headcount and close actions.
+ * The parent passes only the selected company's rows.
  * Give it a `key` that includes the company id so the filters reset on company change.
  */
-export function HeadcountGrid({ allocations, levels, locale }: HeadcountGridProps) {
+export function HeadcountGrid({ companyId, allocations, levels, locale }: HeadcountGridProps) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [orgUnitId, setOrgUnitId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
+  const [dialog, setDialog] = useState<OpenDialog | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // One batched permission check for every org unit + Department pair in the list.
+  const permissionTargets = useMemo(
+    () =>
+      allocations.map((a) => ({
+        orgUnitId: a.org_unit_id,
+        departmentId: a.department_id,
+      })),
+    [allocations]
+  );
+  const permission = usePermissions(companyId, PERM_ALLOCATION_WRITE, permissionTargets);
 
   const collator = useMemo(
     () => new Intl.Collator(locale === "km" ? "km" : "en"),
@@ -119,16 +146,35 @@ export function HeadcountGrid({ allocations, levels, locale }: HeadcountGridProp
     return level ? displayName(locale, level.name_en, level.name_km) : code;
   }
 
+  function openDialog(allocation: PositionAllocation, action: AllocationAction) {
+    setNotice(null);
+    setDialog({ allocation, action });
+  }
+
+  function handleDone(message: string) {
+    setDialog(null);
+    setNotice(message);
+    router.refresh(); // reload allocations from the database
+  }
+
   return (
     <section className="rounded-lg border border-zinc-200 bg-white shadow-sm">
       <div className="border-b border-zinc-200 px-4 py-3">
-        <h2 className="text-base font-semibold text-zinc-900">
-          Approved Headcount (Read-Only)
-        </h2>
+        <h2 className="text-base font-semibold text-zinc-900">Approved Headcount</h2>
         <p className="mt-0.5 text-sm text-zinc-600">
-          Open allocations for the selected company.
+          Open allocations for the selected company. Changing a headcount closes the
+          allocation and starts a new one on the date you pick.
         </p>
       </div>
+
+      {notice && (
+        <p
+          role="status"
+          className="mx-4 mt-4 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
+        >
+          {notice}
+        </p>
+      )}
 
       {allocations.length === 0 ? (
         <p className="m-4 rounded-md bg-zinc-100 px-3 py-2 text-sm text-zinc-700">
@@ -226,6 +272,7 @@ export function HeadcountGrid({ allocations, levels, locale }: HeadcountGridProp
                     <th className="px-4 py-2.5">Job position</th>
                     <th className="px-4 py-2.5 text-right">Approved headcount</th>
                     <th className="px-4 py-2.5">Since</th>
+                    <th className="px-4 py-2.5 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-200">
@@ -252,6 +299,30 @@ export function HeadcountGrid({ allocations, levels, locale }: HeadcountGridProp
                         {a.approved_headcount}
                       </td>
                       <td className="px-4 py-3 text-xs text-zinc-400">{a.valid_from}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-right">
+                        {permission.can(a.org_unit_id, a.department_id) ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => openDialog(a, "change")}
+                              className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+                            >
+                              Change
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openDialog(a, "close")}
+                              className="ml-2 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
+                            >
+                              Close
+                            </button>
+                          </>
+                        ) : (
+                          !permission.isLoading && (
+                            <span className="text-xs text-zinc-400">View only</span>
+                          )
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -263,13 +334,25 @@ export function HeadcountGrid({ allocations, levels, locale }: HeadcountGridProp
                     <td className="px-4 py-2.5 text-right font-mono font-semibold text-zinc-900">
                       {totalHeadcount}
                     </td>
-                    <td />
+                    <td colSpan={2} />
                   </tr>
                 </tfoot>
               </table>
             </div>
           )}
         </>
+      )}
+
+      {dialog && (
+        <AllocationActionDialog
+          key={`${dialog.action}-${dialog.allocation.allocation_id}`}
+          companyId={companyId}
+          allocation={dialog.allocation}
+          action={dialog.action}
+          locale={locale}
+          onCancel={() => setDialog(null)}
+          onDone={handleDone}
+        />
       )}
     </section>
   );

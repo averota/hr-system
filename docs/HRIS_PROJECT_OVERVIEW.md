@@ -18,7 +18,7 @@ An all-in-one HRIS platform covering human resources, employee profile, leave ma
 
 | Module | Code | Scope | State | Documents |
 |---|---|---|---|---|
-| Organization structure | `ORG` | Org tree, position tree, job catalog, Department eligibility, approved headcount allocation | Database complete (ORG Stages 0 to 7). Frontend is next (ORG Stage 8) | `HRIS_ORG_STATUS.md`, `HRIS_ORG_FRONTEND_REFERENCE.md` |
+| Organization structure | `ORG` | Org tree, position tree, job catalog, Department eligibility, approved headcount allocation | Database complete (ORG Stages 0 to 7). Read-only frontend complete (Stages 8a to 8d). Roles stored and permission check built (Stages 9a to 9b). Write wrappers are next (Stage 9c) | `HRIS_ORG_STATUS.md`, `HRIS_ORG_FRONTEND_REFERENCE.md` |
 | Employee profile | not assigned | Not started. Scope not discussed yet. Hiring, transfers and promotions linked to ORG allocations were noted earlier as "employee hooks" and belong here, not in ORG | Not started | none |
 | Leave management | not assigned | Not started. Scope not discussed yet | Not started | none |
 | Attendance | not assigned | Not started. Scope not discussed yet | Not started | none |
@@ -79,6 +79,8 @@ Starting a module: choose a short uppercase code, add it to this table, then cre
 | Seed data | Kept separate from schema migrations |
 | Tooling | Supabase CLI migrations, no Dashboard schema edits |
 | Local DB | Docker could not be installed, so a **cloud dev project** is used |
+| Roles | Three starting roles: `tenant_admin`, `hr_admin`, `viewer`. Permissions stored as codes. Reads stay open to every tenant member for now. Existing members became `tenant_admin`. No role history |
+| Role scope | A role is given per tenant member for one scope: all companies of the tenant, one company, one org unit (subtree included) or one Department. The narrower scope replaces the broader one |
 | Migration naming | `NNN_description.sql`, sequential from `000`, no "stage" in the name. One numbering chain shared by all modules |
 | Batching | Simple stages can be built together and tested once |
 
@@ -88,7 +90,7 @@ Starting a module: choose a short uppercase code, add it to this table, then cre
 - **Bilingual names:** every name has `name_en` (required) and `name_km` (optional).
 - **Tenancy tables:** `core.tenant`, `core.parent_company` (the "company"), `core.tenant_member` (which logged-in users belong to which tenant). Created in migration `001`.
 - **Row visibility pattern:** a user sees only rows of companies whose tenant they belong to. Company-scoped tables use a policy of the form `company_id in (select id from core.parent_company)`, and `parent_company` itself is filtered through `private.user_tenant_ids()`. Reuse this pattern for every new company-scoped table.
-- **Read-only frontend:** logged-in users can only read. Writes go through controlled functions (in `private`, `service_role` only today). Frontend-callable write functions are not designed yet.
+- **Read-only frontend:** logged-in users can only read. Writes go through controlled functions (in `private`, `service_role` only today). Frontend-callable write functions are not built yet. They will check roles (section 5.7).
 - **Read layer:** views use `security_invoker`, so the caller's row level security applies.
 - **Privileges:** every function has an explicit `revoke` and `grant`. For anything in `public`, revoke from `public`, `anon` and `authenticated` first, then grant to `authenticated` and `service_role`.
 - **Dated rows:** the first module (ORG) keeps history with `valid_from` and `valid_to` (empty `valid_to` = current) and never edits a row, it closes it and creates a new one. Whether a later module needs the same is decided per module.
@@ -98,8 +100,10 @@ Starting a module: choose a short uppercase code, add it to this table, then cre
 |---|---|---|
 | `000_create_schemas.sql` | n/a | `core` and `private` schemas, minimal grants |
 | `001_tenancy.sql` | `001_tenancy_test.sql` | `tenant`, `parent_company`, `tenant_member`, `private.user_tenant_ids()`, RLS, read-only grants |
+| `012_roles.sql` | `012_roles_test.sql` | Role tables, seeded roles and permission codes, scope guard, RLS (built in ORG Stage 9b-1) |
+| `013_has_permission.sql` | `013_has_permission_test.sql` | `private.has_permission`, `private.has_tenant_permission` (built in ORG Stage 9b-2) |
 
-Module migrations after these are listed in each module's status document.
+Migrations `002` to `011` are listed in the ORG status document, which also lists `012` and `013` (platform-wide, but built during ORG Stage 9).
 
 ### 5.4 Frontend access model (all modules)
 | Question | Answer |
@@ -108,7 +112,7 @@ Module migrations after these are listed in each module's status document.
 | What can they do today | Read only, through objects in `public` |
 | What can they not do | Insert, update or delete anything. Read `core` or `private`. Anonymous visitors read nothing |
 | Which rows are visible | Only rows of companies whose tenant the user belongs to. A user with no membership sees nothing |
-| Roles | None yet. Every member of a tenant sees everything in that tenant. Roles and per-company access are not designed yet |
+| Roles | Stored and tested (section 5.7) but **not enforced yet**. Every member of a tenant still sees everything in that tenant, and no frontend write exists. A member added later has no role until one is given |
 | Empty result | Usually means "nothing here" or "not a member". The read layer does not raise an error for unknown ids or other tenants' ids |
 | Secret keys | Never use the `service_role` or `secret` key in the browser or in any `NEXT_PUBLIC_` variable. All write functions need `service_role` |
 
@@ -120,6 +124,25 @@ Module migrations after these are listed in each module's status document.
 - **Generated types:** `supabase gen types` only covers exposed schemas, so types come from the `public` views and functions. Generated view columns are usually typed as nullable. Expect to narrow them.
 - **`cacheComponents` is on:** components that read cookies or fetch per-user data must sit inside `<Suspense>`.
 - Language rule for names: show `name_km` when the interface is Khmer and it is not empty, otherwise `name_en`.
+
+### 5.7 Roles and permissions (all modules)
+
+Built in migrations `012` and `013`. The ORG permission codes are listed in `HRIS_ORG_STATUS.md`, section 4.
+
+| Item | Rule | Origin |
+|---|---|---|
+| Tables | `core.app_role` (roles), `core.permission` (codes), `core.app_role_permission` (which role holds which permission), `core.member_role_scope` (a role given to a tenant member for one scope) | Adopted |
+| Starting roles | `tenant_admin` (every permission, including `members.manage`), `hr_admin` (every ORG permission, not `members.manage`), `viewer` (`org.read` only) | Your decisions |
+| Scope | One of: all companies of the tenant, one company, one org unit (subtree included), one Department. Each assignment points at one place. One assignment per member per scope | Your decisions |
+| Scope rules | An org unit or Department scope must be open when created, and a Department scope must be a Department. The role can change later, the scope cannot. A unit closed later keeps its assignment, which then grants nothing | Adopted |
+| Permission codes | Lowercase `<area>.<thing>.<action>`, for example `org.unit.write`. Two flags say whether a code can be checked at org unit scope and at Department scope. Codes with neither flag are checked at company or tenant level only | Adopted |
+| Check functions | `private.has_permission(company, code, org unit, Department)` and `private.has_tenant_permission(tenant, code)`. Both use the caller's login (`auth.uid()`) and only the caller's own assignments | Adopted |
+| Resolution | A narrow assignment (org unit or Department) replaces the broader company and tenant-wide roles. If several narrow assignments apply, all must hold the permission (restriction wins). With none, the company role decides, then the tenant-wide role. A closed, missing or other-company target is never valid | Your decisions (narrower replaces broader), Adopted (details) |
+| Adding a module's permissions | The module's first migration adds its codes and grants them to roles. Which roles get them is decided per module | Adopted |
+| Reads | Not governed by roles yet. `org.read` exists but nothing checks it | Your decisions |
+| Visibility of assignments | A user sees only their own. Who may see all of a tenant's assignments is decided with the members screen | Adopted |
+| `members.manage` | Tenant-wide only. A company-scoped `tenant_admin` cannot manage members | Assumption |
+| State | Stored and tested. No function or screen uses the check yet | |
 
 ---
 
@@ -137,6 +160,7 @@ Module migrations after these are listed in each module's status document.
 ## 7. Open items for you (project-wide)
 
 - Delete the `app/test-supabase/` folder if not already done.
+- A way to create tenants, companies, members and role assignments does not exist yet (done by hand with `service_role`). Protecting the last `tenant_admin` from removal is also open.
 
 Module-specific open items are in each module's status document.
 

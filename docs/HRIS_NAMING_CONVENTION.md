@@ -5,7 +5,7 @@ Purpose: One place that says how project documents, modules, stages, migrations,
 Read together with: `HRIS_PROJECT_OVERVIEW.md`
 
 Status of this convention:
-- Sections 1 to 4 are in use today (documents and modules are new, the rest was observed in migrations `001` to `010`).
+- Sections 1 to 4 are in use today (documents and modules are new, the rest was observed in migrations `001` to `013`).
 - Section 5 (frontend code naming) is **not defined yet**. It is to be agreed at the start of ORG Stage 8.
 
 ---
@@ -84,7 +84,7 @@ Migrations form **one chain shared by all modules**. A module's status document 
 | Migration | `supabase/migrations/NNN_description.sql`. Three digits, sequential from `000`, no gaps. Description is lowercase snake_case and says what the file contains. No word "stage" | `009_reorg.sql` |
 | Test | `supabase/tests/NNN_description_test.sql`, same `NNN` and description as its migration | `001_tenancy_test.sql` |
 | Combined test | `NNN_MMM_description_test.sql`, first and last migration number covered | `009_010_reorg_read_layer_test.sql` |
-| Seed | Kept separate from schema migrations. Location and name are **not defined yet**. Define when the first seed file is created (the Khmer level names, ORG Stage 2b) | |
+| Seed | Sample and dev data is kept separate from schema migrations (`seed_dev_tenant.sql`, `seed_dev_org_sample.sql`, dev only). Reference data the system cannot run without (levels in `002`, roles and permission codes in `012`) is seeded inside the migration that creates its table. This split is an assumption, not yet confirmed. Location and name of seed files are **not defined yet**. Define when the Khmer level names are added (ORG Stage 2b) | |
 
 ### Migration header (first comment lines)
 - Line 1: `-- NNN: short title (<MODULE> Stage X)`. Migrations `000` and `001` are shared platform files and have no module.
@@ -110,7 +110,7 @@ Migrations form **one chain shared by all modules**. A module's status document 
 | Item | Rule | Example |
 |---|---|---|
 | Table | Singular, lowercase snake_case | `org_unit`, `job_position` |
-| Table prefix | Not fixed across modules. ORG uses `org_` and `pos_` for its two trees. When a new module starts, agree its prefix in its first migration and record it here | `org_unit`, `pos_unit` |
+| Table prefix | Not fixed across modules. ORG uses `org_` and `pos_` for its two trees. Platform-wide role tables use `app_` where a plain name would clash with database roles. When a new module starts, agree its prefix in its first migration and record it here | `org_unit`, `pos_unit`, `app_role` |
 | Parent link table | `<node table>_parent` | `org_unit_parent` |
 | Primary key | `id integer generated always as identity` | |
 | Foreign key column | `<thing>_id` | `company_id`, `department_id` |
@@ -133,7 +133,7 @@ Migrations form **one chain shared by all modules**. A module's status document 
 | Guard function | `<table>_guard()`. The trigger has the same name | `org_unit_guard` |
 | Deferred link check | `<node>_link_check()`, with constraint triggers `<node>_needs_link` and `<node>_parent_keeps_link` | `pos_unit_link_check` |
 | Write function | Starts with a verb: `create_`, `close_`, `reorg_` | `create_allocation`, `close_org_unit`, `reorg_pos_unit` |
-| Helper function | Describes the result | `pos_department_of`, `user_tenant_ids` |
+| Helper function | Describes the result. Yes/no checks start with `has_` | `pos_department_of`, `user_tenant_ids`, `has_permission` |
 | Parameters | Prefix `p_` | `p_company_id` |
 | Local variables | Prefix `v_` | `v_unit_id` |
 | Settings | `set search_path = ''`, tables written as `core.<table>` | |
@@ -151,6 +151,14 @@ Migrations form **one chain shared by all modules**. A module's status document 
 | Dropdown function | `<thing>_options` | `org_options`, `pos_options` |
 | Eligibility-filtered function | `eligible_<things>` | `eligible_departments`, `eligible_jobs` |
 | Privileges | Revoke from `public`, `anon`, `authenticated`, then grant to `authenticated` and `service_role` (Supabase grants new `public` objects to `anon` by default) | |
+
+### Roles and permissions (platform-wide data)
+| Item | Rule | Example |
+|---|---|---|
+| Role code | Lowercase snake_case | `tenant_admin`, `hr_admin`, `viewer` |
+| Permission code | Lowercase, dotted: `<area>.<thing>.<action>` | `org.unit.write`, `pos.job.write`, `members.manage` |
+| Scope kind (`member_role_scope.scope_kind`) | Lowercase snake_case | `tenant`, `company`, `org_unit`, `department` |
+| Role table names | `app_role`, `app_role_permission`, `member_role_scope`. The code table is `permission` | |
 
 ### Level codes (ORG data, `core.hierarchy_level.code`)
 Lowercase snake_case: `business_unit`, `branch`, `division`, `department`, `office`, `section`, `group`.

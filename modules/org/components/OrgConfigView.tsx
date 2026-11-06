@@ -326,6 +326,12 @@ export function OrgConfigView({
                 emptyText="No org units exist for this company yet."
                 units={companyOrgUnits}
                 locale={locale}
+                manage={{
+                  tree: "org",
+                  companyId: selectedCompanyId,
+                  levels,
+                  rules: companyRules,
+                }}
               />
             )}
 
@@ -337,6 +343,12 @@ export function OrgConfigView({
                 emptyText="No Departments or position units exist for this company yet."
                 units={companyPosUnits}
                 locale={locale}
+                manage={{
+                  tree: "pos",
+                  companyId: selectedCompanyId,
+                  levels,
+                  rules: companyRules,
+                }}
               />
             )}
 
@@ -352,6 +364,7 @@ export function OrgConfigView({
             {activeTab === "headcount" && (
               <HeadcountGrid
                 key={`hc-${selectedCompanyId}`}
+                companyId={selectedCompanyId}
                 allocations={companyAllocations}
                 levels={levels}
                 locale={locale}

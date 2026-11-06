@@ -1,17 +1,19 @@
 # HRIS ORG Frontend Reference
 
 Last updated: 2026-11-06
-Purpose: Everything the frontend needs to know about the ORG (Organization structure) database: what it can read, what it cannot do yet, the rules and errors. Use it instead of reading the migration files.
+Purpose: Everything the frontend needs to know about the ORG (Organization structure) database: what it can read, what it can write, the rules and errors. Use it instead of reading the migration files.
 Read together with: `HRIS_PROJECT_OVERVIEW.md` (shared access model, dates and implementation notes), `HRIS_ORG_STATUS.md`, `HRIS_NAMING_CONVENTION.md`
 
-Covers migrations `002` to `011` (ORG), plus `001` where tenancy matters. All applied and tested on the dev project. Not reviewed for this document: `000_create_schemas.sql` and the files in `lib/supabase/`.
+Covers migrations `002` to `011` (ORG), and `014` to `020` and `022` (ORG write wrappers), plus `001` where tenancy matters. Migrations `012` and `013` (roles) are covered only where they affect the frontend (sections 8, 9 and 11). All applied on the dev project. Tests for `002` to `013`, `021` and `022` passed. Test results for `014` to `020` are not yet confirmed (see `HRIS_ORG_STATUS.md`). Not reviewed for this document: `000_create_schemas.sql` and the files in `lib/supabase/`.
 
 ---
 
 ## 1. Scope and access
 
 - This document covers the ORG module only. Other modules will have their own reference.
-- The frontend reads ORG data through **8 views and 4 functions in `public`** (section 3). It cannot write anything yet (section 8).
+- The frontend reads ORG data through **8 views and 4 functions in `public`** (section 3) and writes through **18 `public` write wrappers** (section 8). The allocation form, headcount grid and the org and position tree screens call the wrappers so far (ORG Stages 9d and 9f). Jobs, Department listings and level rules have no screen yet. Role-aware buttons use `public.check_permissions` (section 8.5).
+- Every wrapper checks the caller's permission with `private.has_permission` (migrations `012`, `013`). Reads are still open to every tenant member and are not permission-checked.
+- The roles and permission tables are not exposed in `public`. The frontend asks `public.check_permissions` instead (section 8.5, gap G8 closed).
 - The shared access model (who can call what, which rows are visible, empty results, secret keys) is in `HRIS_PROJECT_OVERVIEW.md`, section 5.4. Nothing in ORG changes it.
 
 ---
@@ -50,7 +52,7 @@ Khmer level names (`name_km` in `hierarchy_levels`) are empty for now.
 - A unit's link points at the rule that allowed it. Later rule changes never touch existing links.
 
 ### Eligibility, jobs, allocations
-- **Eligibility:** which Departments each org unit may use. Listed per org unit. **Not inherited** from the parent org unit.
+- **Eligibility (Department listing):** which Departments each org unit may use. Listed per org unit. **Not inherited** from the parent org unit.
 - **Job position:** a title (for example Architect) that belongs to exactly one Department. Catalog is company-wide.
 - **Allocation:** org unit + job + position unit + approved headcount. The job's Department must be listed for the org unit. The position unit is the job's own Department or an open Office, Section or Group anywhere below it.
 
@@ -112,17 +114,17 @@ Notes:
 Rules for the form:
 - When an earlier step changes, **clear every later step**.
 - Invalid combinations (a job from a Department the org unit does not list) can never be offered, because each list comes from a function that filters them out.
-- Before saving (when the write function exists), check `position_allocations_current` for an existing allocation with the same org unit, position unit and job. The database rejects a duplicate open allocation (unique index `position_allocation_open_uq`, Postgres error code `23505`).
+- Save with `public.create_allocation` (section 8). Before saving, check `position_allocations_current` for an existing allocation with the same org unit, position unit and job. The database rejects a duplicate open allocation (unique index `position_allocation_open_uq`, Postgres error code `23505`).
 
-Implemented (read-only, save disabled) in `modules/org/components/AllocationForm.tsx`, using `CascadeSelector`, `AsyncSelect` and the wrappers in `modules/org/queries.ts`. The duplicate check is `fetchExistingAllocation`.
+Implemented (read-only, save disabled) in `modules/org/components/AllocationForm.tsx`, using `CascadeSelector`, `AsyncSelect` and the wrappers in `modules/org/queries.ts`. The duplicate check is `fetchExistingAllocation`. Save calls `public.create_allocation` (ORG Stage 9d) and is disabled when the user lacks `org.allocation.write` for the org unit and Department (ORG Stage 9e).
 
-Headcount grid: read `position_allocations_current` filtered by `company_id`. Changing a headcount means closing the allocation and creating a new one (allocations are never edited).
+Headcount grid: read `position_allocations_current` filtered by `company_id`. Implemented (read-only) in `modules/org/components/HeadcountGrid.tsx`. Allocations are never edited. To change a headcount call `public.change_allocation_headcount` (closes the allocation and creates the replacement in one transaction). To remove an allocation call `public.close_allocation`.
 
 ---
 
 ## 5. Rules the database enforces
 
-These hold no matter what the frontend sends. Messages are quoted exactly so the frontend can map them. `%` stands for a value inserted by the database.
+These hold no matter what the frontend sends. Messages are quoted exactly so the frontend can map them. `%` stands for a value inserted by the database. Messages added by the write functions of `014` to `020` are in section 8.
 
 ### Company rules (`company_level_rule`)
 | Rule | Message |
@@ -130,8 +132,8 @@ These hold no matter what the frontend sends. Messages are quoted exactly so the
 | A new rule must be open | `A new rule must be open (valid_to must be empty)` |
 | A level that cannot be at the root needs a parent level | `Level "%" cannot sit directly under the root` |
 | The parent level must be enabled for the company | `The parent level is not enabled for this company` |
-| A parent level must rank higher than its child | check constraint (no custom message) |
-| One open rule per company + level + parent level | unique index `company_level_rule_open_uq` (code `23505`) |
+| A parent level must rank higher than its child | check constraint (no custom message). `public.enable_level_rule` checks it first, see section 8 |
+| One open rule per company + level + parent level | unique index `company_level_rule_open_uq` (code `23505`). `public.enable_level_rule` checks it first, see section 8 |
 | Rules are never edited, only closed | `Rules cannot be edited. Close the rule and create a new one` |
 | A closed rule cannot change | `A closed rule cannot be changed` |
 | Disabling = closing the **last** open rule of a level. Required level | `Level "%" is required and cannot be disabled` |
@@ -169,7 +171,7 @@ Closing a unit **automatically closes**: its open parent link, its open allocati
 |---|---|
 | New job must be open | `A new job position must be open (valid_to must be empty)` |
 | Must belong to an open Department | `A job position must belong to an open Department` |
-| Title unique inside its Department while open (exact English name match) | unique index `job_position_open_name_uq` (code `23505`) |
+| Title unique inside its Department while open (exact English name match) | unique index `job_position_open_name_uq` (code `23505`). The job write functions check it first with a clear message, see section 8 |
 | Names can change. Company, Department, start date cannot | `Company, department and start date of a job position cannot be changed` |
 | A closed job cannot change | `A closed job position cannot be changed` |
 
@@ -181,7 +183,7 @@ Closing a job automatically closes its open allocations.
 | New row must be open | `A new eligibility row must be open (valid_to must be empty)` |
 | The org unit must be open | `The org unit is closed` |
 | Only an open Department can be listed | `Only an open Department can be listed for an org unit` |
-| One open row per org unit + Department | unique index `org_unit_department_open_uq` (code `23505`) |
+| One open row per org unit + Department | unique index `org_unit_department_open_uq` (code `23505`). `public.add_department_listing` checks it first, see section 8 |
 | Rows are never edited, only closed | `Eligibility rows cannot be edited. Close the row and create a new one` |
 | A closed row cannot change | `A closed eligibility row cannot be changed` |
 | Cannot close a listing that allocations still use | `Open allocations still use this Department at this org unit. Close them first` |
@@ -206,10 +208,10 @@ Closing a job automatically closes its open allocations.
 
 | Item | Detail |
 |---|---|
-| Blank names | `name_en` must be present, but an empty or whitespace-only string is accepted. Validate and trim in the form |
+| Blank names | The write wrappers refuse a missing or blank English name (`The English name is required`). `create_org_unit` and `create_pos_unit` store the name **as sent**, so trim it in the form (`createUnit` does). The rename and job functions trim it themselves |
 | Name length | No limit |
 | Duplicate unit names | Allowed (two units named the same under one parent). Only job titles are unique, inside a Department |
-| Khmer names | `name_km` is optional and not validated. Language fallback rule is in `HRIS_PROJECT_OVERVIEW.md`, section 5.6. Level names have no Khmer text yet |
+| Khmer names | `name_km` is optional and not validated. Job functions trim it and store an empty value as null. Language fallback rule is in `HRIS_PROJECT_OVERVIEW.md`, section 5.6. Level names have no Khmer text yet |
 | Headcount maximum | None. Only 0 or more, whole number |
 
 ---
@@ -217,47 +219,150 @@ Closing a job automatically closes its open allocations.
 ## 7. Dates in ORG functions
 
 The shared rule (server date is UTC, pass dates explicitly) is in `HRIS_PROJECT_OVERVIEW.md`, section 5.5. ORG specifics:
-- Create functions always start a record **today by the server's date**. No backdating or future dating is possible through them.
-- Close and reorg functions take a date parameter (default today). **Pass the date explicitly from the frontend** when the user picks one.
+- Every date parameter of a write wrapper defaults to the server's date (UTC). **Pass the date explicitly from the frontend** when the user picks one.
+- Dates the user can choose: allocation start (`create_allocation`), Department listing start (`add_department_listing`), and the close or effective date of every close, reorg and headcount change.
+- `create_org_unit`, `create_pos_unit` and `create_job_position` have no date parameter: the record starts **today by the server's date**. No backdating or future dating is possible through them.
+- A start date cannot be earlier than the start of the things the new row depends on. A close or reorg date cannot be earlier than the start of the rows it ends (messages in section 8).
 - A future date takes effect immediately, because "current" is defined as an empty `valid_to`. There is no "starts later" state.
-- A close or reorg date cannot be earlier than the start of the rows it ends (see messages in section 8).
 
 ---
 
-## 8. Write functions
+## 8. Write API
 
-All are in `private`, executable by `service_role` only. **None is callable from the frontend yet.** They show what the future frontend write functions will wrap.
+### 8.1 Public wrappers (callable from the frontend)
 
-| Function | Arguments | What it does | Messages it can raise |
-|---|---|---|---|
-| `create_org_unit` | `company, level, parent (null = under the company), name_en, name_km` | Creates the unit and its link, finding the matching open rule itself. Returns the new id | `Parent unit % is not an open unit of this company`, `No active rule allows this level under this parent` |
-| `create_pos_unit` | Same | Same, for the position tree | Same two messages |
-| `create_allocation` | `company, org_unit, job_position, pos_unit, headcount` | Finds the matching open eligibility row, creates the allocation. Returns the new id | `This job position is not offered at this org unit`, plus allocation messages in section 5 |
-| `close_org_unit` | `company, unit, close_date` | Closes an open unit (cascades in section 5) | `Org unit % is not an open unit of this company`, `Close date % is earlier than %, when this unit or something under it started`, plus unit messages in section 5 |
-| `close_pos_unit` | Same | Same, for the position tree | `Position unit % is not an open unit of this company`, same date message |
-| `reorg_org_unit` | `company, unit, new_parent (null = to the company), effective_date` | Moves a unit and everything under it. Unit id stays. Old link closes, new link opens | See below |
-| `reorg_pos_unit` | Same | Same, for Office, Section, Group | See below |
+All are in `public`, `security definer`, granted to `authenticated` and `service_role` only (not `anon`). Each checks the caller's permission, then calls the matching `private` function. Call them with `supabase.rpc('<name>', { ... })`. Parameters with a default can be omitted. All ids are integers. "Today" means the server date (UTC), so pass dates explicitly.
 
-Reorg messages:
-- `Org unit % is not an open unit of this company` / `Position unit % is not an open unit of this company`
-- `The unit is already under this parent`
-- `Effective date % is earlier than %, when the current parent link started`
-- `New parent % is not an open unit of this company`
-- `Effective date % is earlier than %, when the new parent started`
-- `No active rule allows this level under this parent` (also what you get when trying to move a Department, or to move a unit under itself or one of its own descendants)
-- `Open allocations sit at this unit or under it. Close them before moving it to another Department` (position tree only. Moving inside the same Department is allowed)
+| Wrapper | Parameters (default) | Returns |
+|---|---|---|
+| `create_allocation` | `p_company_id`, `p_org_unit_id`, `p_job_position_id`, `p_pos_unit_id`, `p_headcount`, `p_start_date` (today) | new allocation id |
+| `close_allocation` | `p_company_id`, `p_allocation_id`, `p_close_date` (today) | nothing |
+| `change_allocation_headcount` | `p_company_id`, `p_allocation_id`, `p_new_headcount`, `p_effective_date` (today) | new allocation id. Closes the old allocation and opens the replacement on the same date, in one transaction |
+| `create_org_unit` | `p_company_id`, `p_level_id`, `p_parent_unit_id` (null = under the company), `p_name_en`, `p_name_km` (null) | new unit id |
+| `close_org_unit` | `p_company_id`, `p_unit_id`, `p_close_date` (today) | nothing |
+| `reorg_org_unit` | `p_company_id`, `p_unit_id`, `p_new_parent_id` (null = to the company), `p_effective_date` (today) | nothing |
+| `create_pos_unit` | `p_company_id`, `p_level_id`, `p_parent_unit_id` (null = a new Department), `p_name_en`, `p_name_km` (null) | new unit id |
+| `close_pos_unit` | `p_company_id`, `p_unit_id`, `p_close_date` (today) | nothing |
+| `reorg_pos_unit` | `p_company_id`, `p_unit_id`, `p_new_parent_id` (null = to the top), `p_effective_date` (today) | nothing |
+| `rename_org_unit` | `p_company_id`, `p_unit_id`, `p_name_en`, `p_name_km` (null) | nothing. Replaces both names (trimmed), an empty Khmer name clears it |
+| `rename_pos_unit` | `p_company_id`, `p_unit_id`, `p_name_en`, `p_name_km` (null) | nothing. Same as `rename_org_unit` |
+| `create_job_position` | `p_company_id`, `p_department_id`, `p_name_en`, `p_name_km` (null) | new job id |
+| `rename_job_position` | `p_company_id`, `p_job_id`, `p_name_en`, `p_name_km` (null) | nothing. Replaces both names, an empty Khmer name clears it |
+| `close_job_position` | `p_company_id`, `p_job_id`, `p_close_date` (today) | nothing. Also closes the job's open allocations |
+| `add_department_listing` | `p_company_id`, `p_org_unit_id`, `p_department_id`, `p_start_date` (today) | new listing (eligibility) id |
+| `remove_department_listing` | `p_company_id`, `p_org_unit_id`, `p_department_id`, `p_close_date` (today) | nothing. A listing is found by org unit + Department, not by its id |
+| `enable_level_rule` | `p_company_id`, `p_level_id`, `p_parent_level_id` (null = directly under the root) | new rule id |
+| `disable_level_rule` | `p_company_id`, `p_rule_id`, `p_close_date` (today) | nothing. Needs the rule id from `company_level_rules_current` |
+
+Example:
+```ts
+const { data: newId, error } = await supabase.rpc('create_allocation', {
+  p_company_id: companyId,
+  p_org_unit_id: orgUnitId,
+  p_job_position_id: jobId,
+  p_pos_unit_id: posUnitId,
+  p_headcount: 5,
+  p_start_date: '2026-11-06', // pass the date the user picked
+})
+```
+
+### 8.2 Permission each wrapper checks
+
+Each wrapper calls `private.has_permission(company, code, org unit, Department)`. Resolution rules (narrow scope replaces broad, restrictions win) are in `HRIS_ORG_STATUS.md`, section 3. When no org unit or Department is passed, only a company-wide or tenant-wide assignment can pass. All three starting roles: `tenant_admin` and `hr_admin` hold every ORG write code, `viewer` holds none.
+
+| Wrapper | Permission code | Checked at |
+|---|---|---|
+| `create_allocation`, `close_allocation`, `change_allocation_headcount` | `org.allocation.write` | the allocation's org unit and the job's Department |
+| `create_org_unit` | `org.unit.write` | the parent unit (a role on a unit covers its subtree). No parent: company or tenant-wide role only |
+| `close_org_unit` | `org.unit.write` | the unit |
+| `reorg_org_unit` | `org.unit.write` | the unit **and** the new parent. To the company (no parent): company or tenant-wide role only |
+| `create_pos_unit` | `pos.unit.write` | the Department of the parent unit. A new Department (no parent): company or tenant-wide role only |
+| `close_pos_unit` | `pos.unit.write` | the unit's Department. Closing a Department itself: company or tenant-wide role only |
+| `reorg_pos_unit` | `pos.unit.write` | the unit (same rule as `close_pos_unit`) **and** the Department of the new parent. To the top: company or tenant-wide role only. Departments cannot move |
+| `rename_org_unit` | `org.unit.write` | the unit |
+| `rename_pos_unit` | `pos.unit.write` | the unit's Department (same rule as `close_pos_unit`). Renaming a Department itself: company or tenant-wide role only |
+| `create_job_position`, `rename_job_position`, `close_job_position` | `pos.job.write` | the job's Department |
+| `add_department_listing`, `remove_department_listing` | `org.eligibility.write` | the org unit (a Branch role covers its Divisions). Department-scoped roles have no say |
+| `enable_level_rule`, `disable_level_rule` | `org.config.write` | company or tenant level only. Org unit and Department roles never pass |
+
+### 8.3 Errors from the wrappers
+
+- **No permission:** Postgres error code `42501` with one fixed message per area. Map the **code**, not the text. A caller who is not a member of the company's tenant gets the same error, so a non-member learns nothing about what exists.
+- **Everything else** is a plain error (code `P0001`) with the message below. A tenant member naming something that is not open in the company gets a plain message. Permission is checked after that existence check, so a member can see "not an open ..." for something they may not manage.
+
+| Area | No-permission message (code `42501`) |
+|---|---|
+| Allocations | `You do not have permission to manage allocations here` |
+| Org units | `You do not have permission to manage org units here` |
+| Position units | `You do not have permission to manage position units here` |
+| Job positions | `You do not have permission to manage job positions here` |
+| Department listings | `You do not have permission to manage Department listings here` |
+| Hierarchy rules | `You do not have permission to change hierarchy rules here` |
+
+Messages the wrappers and `private` functions can raise (besides the rules in section 5):
+
+| Area | Messages |
+|---|---|
+| Allocations | `Allocation % is not an open allocation of this company`, `This job position is not offered at this org unit`, `Start date % is earlier than %, when the org unit, listing, job or position unit started`, `Close date % is earlier than %, when this allocation started`, `The new headcount is the same as the current headcount` |
+| Org units | `Parent unit % is not an open unit of this company`, `Org unit % is not an open unit of this company`, `New parent % is not an open unit of this company`, `The English name is required`, plus create, close and reorg messages below |
+| Position units | Same as org units with `Position unit % is not an open unit of this company`, plus create, close and reorg messages below |
+| Job positions | `Department % is not an open Department of this company`, `Job position % is not an open job position of this company`, `The English name is required`, `A job position named "%" already exists in this Department`, `Close date % is earlier than %, when this job or an allocation of it started` |
+| Department listings | `Org unit % is not an open unit of this company`, `Department % is not an open Department of this company`, `Department % is already listed for org unit %`, `Department % is not listed for org unit %`, `Start date % is earlier than %, when the org unit or Department started or a previous listing ended`, `Close date % is earlier than %, when this listing started`, and `Open allocations still use this Department at this org unit. Close them first` |
+| Hierarchy rules, enable | `Company % not found`, `Level % does not exist`, `The parent level must be in the same tree as the level`, `A parent level must be higher up than its child level`, `This rule is already enabled for the company`. The guard still decides `Level "%" cannot sit directly under the root` and `The parent level is not enabled for this company` |
+| Hierarchy rules, disable | `Rule % is not an open rule of this company` (members only, non-members get `42501`), `Close date % is earlier than %, when this rule started`. The guard still decides the three disable messages in section 5 |
+
+Create, close and reorg messages from the private functions (unchanged):
+- `create_org_unit`, `create_pos_unit`: `Parent unit % is not an open unit of this company`, `No active rule allows this level under this parent`.
+- `rename_org_unit`, `rename_pos_unit`: `Org unit % is not an open unit of this company` / `Position unit % is not an open unit of this company`, `The English name is required`.
+- `close_org_unit`: `Org unit % is not an open unit of this company`, `Close date % is earlier than %, when this unit or something under it started`, plus the unit messages in section 5. `close_pos_unit` is the same with `Position unit % ...`.
+- Reorg:
+  - `Org unit % is not an open unit of this company` / `Position unit % is not an open unit of this company`
+  - `The unit is already under this parent`
+  - `Effective date % is earlier than %, when the current parent link started`
+  - `New parent % is not an open unit of this company`
+  - `Effective date % is earlier than %, when the new parent started`
+  - `No active rule allows this level under this parent` (also what you get when trying to move a Department, or to move a unit under itself or one of its own descendants)
+  - `Open allocations sit at this unit or under it. Close them before moving it to another Department` (position tree only. Moving inside the same Department is allowed)
 
 Reorg keeps eligibility rows and allocations attached to the unit. It does not rewrite them.
 
-### Write functions that do not exist yet
+### 8.4 Private functions (not callable from the frontend)
+
+`service_role` only. They are what the wrappers call. Argument order matches the wrapper without the permission check.
+
+| Function | Added in | Note |
+|---|---|---|
+| `create_org_unit`, `create_pos_unit` | `003`, `004` | Find the matching open rule themselves |
+| `create_allocation` | `006`, **replaced in `015`** | New `p_start_date` argument (default today). The old 5-argument form was dropped, 5-argument calls still work because of the default |
+| `close_org_unit`, `close_pos_unit` | `008` | Closing cascades (section 5) |
+| `reorg_org_unit`, `reorg_pos_unit`, `pos_department_of` | `009` | |
+| `close_allocation` | `014` | |
+| `create_job_position`, `rename_job_position`, `close_job_position` | `018` | |
+| `add_department_listing`, `remove_department_listing` | `019` | |
+| `enable_level_rule`, `disable_level_rule` | `020` | |
+| `is_company_member` | `016` | True when the caller belongs to the company's tenant. Used by the wrappers to choose between a plain message and no hint |
+| `rename_org_unit`, `rename_pos_unit` | `022` | Trim both names. English name required |
+| `can_manage_pos_unit` | `017` | The "may the caller change this unit itself" rule shared by `close_pos_unit` and `reorg_pos_unit` |
+
+### 8.5 Permission check for the frontend (`check_permissions`, migration `021`)
+
+`public.check_permissions(p_company_id, p_permission_code, p_targets)` returns `org_unit_id`, `department_id`, `allowed` for each distinct target. `p_targets` is a JSON array of `{org_unit_id, department_id}` (either key can be missing or null, default is one empty target, at most 500 per call). It calls the same `private.has_permission` as the wrappers. A caller who is not logged in or not a member gets `allowed = false` for everything. It only hides what would fail, the wrappers still check on every write.
+
+Which key matters per code: `org.allocation.write` org unit and Department; `org.unit.write` and `org.eligibility.write` org unit; `pos.unit.write` and `pos.job.write` Department; `org.config.write` none.
+
+Frontend helper: `modules/org/permissions.ts`.
+```ts
+const perm = usePermissions(companyId, PERM_ALLOCATION_WRITE, [{ orgUnitId, departmentId }]);
+perm.can(orgUnitId, departmentId); // false until the answer arrives
+perm.isLoading;
+```
+Pass all targets of a screen in one call (the headcount grid does this for every row). Add a constant per permission code when a screen needs it.
+
+### 8.6 Write functions that do not exist yet
 | Needed by | Missing function |
 |---|---|
-| Config screen | Create and close company level rules (enable and disable a level) |
-| Job catalog screen | Create a job position, rename it, close it |
-| Eligibility screen | List a Department for an org unit, remove a listing |
-| Headcount grid | Close a single allocation (needed to change a headcount) |
-| Names | Rename a unit |
 | Setup | Create tenant, company and tenant membership (dev data was seeded by hand, see `HRIS_ORG_STATUS.md`, section 4) |
+| Members screen | Give and remove roles (no function or screen yet) |
 
 ---
 
@@ -267,11 +372,12 @@ Reorg keeps eligibility rows and allocations attached to the unit. It does not r
 |---|---|---|---|
 | G1 | ~~No read object for parent companies or tenants~~ | **Closed** by migration `011`: `public.parent_companies` | none |
 | G2 | ~~No read object for the level catalog~~ | **Closed** by migration `011`: `public.hierarchy_levels` | none |
-| G3 | No `public` write functions | Nothing can be saved from the frontend | Wrappers over the `private` write functions, each with explicit `revoke` and `grant`, designed with roles |
-| G4 | Missing write functions (section 8) | Config, jobs, eligibility and headcount screens cannot save | New migrations, one area at a time |
-| G5 | No roles or permissions | Every tenant member sees everything and (later) could write everything | Design before G3. Shared topic, see `HRIS_PROJECT_OVERVIEW.md` |
+| G3 | ~~No `public` write functions~~ | **Closed** by migrations `015` to `020` (and `014`) and `022`: section 8. Allocation and unit screens are wired (ORG Stages 9d, 9f). Jobs, listings and level rules: ORG Stages 9g, 9h | Wire the remaining screens |
+| G4 | ~~Missing write functions~~ | **Mostly closed** by `014`, `018`, `019`, `020`, `022`. Still missing: tenant/company/membership setup, role management (section 8.6) | New migrations when a screen needs them |
+| G5 | ~~No roles or permissions~~ | **Closed for writes** by `012`, `013` and the wrappers: every wrapper calls `private.has_permission`. Reads stay open to every tenant member. Shared topic, see `HRIS_PROJECT_OVERVIEW.md`, section 5.7 | none |
 | G6 | No history views | Closed rows, reorg history and "as of date" cannot be read | Add when a screen needs them |
 | G7 | Khmer level names empty | Level labels show English only | Seed migration (ORG Stage 2b, skipped for now) |
+| G8 | ~~No read object for the caller's own permissions~~ | **Closed** by migration `021` (`public.check_permissions`, section 8.5) and `modules/org/permissions.ts`. Allocation form and headcount grid use it | none |
 
 ---
 
@@ -284,6 +390,10 @@ Shared notes (generated types, `cacheComponents`, language fallback) are in `HRI
 - **Empty lists:** show a reason ("no Departments listed for this org unit") instead of an empty dropdown.
 - **Reusable pieces:** `AsyncSelect` and `CascadeSelector` load their own options. Pass them a memoised (`useCallback`) loader, and give them a `key` that includes whatever they depend on (company, parent choice) so they reset.
 - **Units for trees:** `app/page.tsx` loads `org_units_current` and `pos_units_current` for all visible companies and the browser filters by company. Revisit if a tenant ever has many thousands of units.
+- **Allocations for the headcount grid:** `app/page.tsx` loads `position_allocations_current` for all visible companies without paging. Supabase returns at most 1000 rows per request by default, so the grid and its total would be too low beyond that. Revisit when real data volume is known.
+- **Calling a wrapper:** `error.code === '42501'` means no permission. Show a fixed "you do not have permission" message. Show the database message for other errors (they are written for users), and refresh the lists after a successful write because views return only open rows.
+- **Passing null:** `p_parent_unit_id`, `p_new_parent_id` have no default. Send `null` explicitly for "under the company" or "top of the tree". The generated types say `number`, so `queries.ts` casts (`value as number`).
+- **Unit management (ORG Stage 9f):** `OrgTreeExplorer` takes an optional `manage` prop (tree, company, levels, the company's rules). Without it the tree is read-only. The levels offered for a new unit and the places a unit can move to come from the open rules (`modules/org/unitTree.ts`), never from a fixed list. Where each permission is checked: org tree at the unit. Position tree at the unit's Department. A Department itself and a new top-level unit use an empty target (company-wide or tenant-wide role). Add, rename, move and close all go through `createUnit`, `renameUnit`, `reorgUnit`, `closeUnit` in `queries.ts` (pass `"org"` or `"pos"`).
 
 ---
 
@@ -297,9 +407,19 @@ Shared notes (generated types, `cacheComponents`, language fallback) are in `HRI
 | Org tree, parent links, deferred link check, `create_org_unit` | `003_org_tree.sql` |
 | Position tree, `create_pos_unit` | `004_position_tree.sql` |
 | Job positions, Department eligibility | `005_jobs_and_eligibility.sql` |
-| Allocation table and guard, `create_allocation`, **latest** unit, job and eligibility guards | `006_allocation.sql` |
+| Allocation table and guard, **latest** unit, job and eligibility guards | `006_allocation.sql` |
 | Close functions | `008_close_unit.sql` |
 | Reorg functions | `009_reorg.sql` |
 | Public views, read functions, privileges | `010_read_layer.sql` |
 | `parent_companies` and `hierarchy_levels` views | `011_catalog_read_views.sql` |
-| Behaviour proven by tests | `supabase/tests/` (`009_010_reorg_read_layer_test.sql` for reorg and the read layer) |
+| Roles, permission codes, role scope, scope guard | `012_roles.sql` |
+| Permission check (`has_permission`, `has_tenant_permission`) | `013_has_permission.sql` |
+| `private.close_allocation` | `014_close_allocation.sql` |
+| **Latest** `private.create_allocation`, allocation wrappers | `015_allocation_wrappers.sql` |
+| Org unit wrappers, `private.is_company_member` | `016_org_unit_wrappers.sql` |
+| Position unit wrappers, `private.can_manage_pos_unit` | `017_pos_unit_wrappers.sql` |
+| Job position functions and wrappers | `018_job_position_functions.sql` |
+| Department listing functions and wrappers | `019_department_listing_functions.sql` |
+| Level rule functions and wrappers | `020_level_rule_functions.sql` |
+| Rename unit functions and wrappers | `022_rename_unit.sql` |
+| Behaviour proven by tests | `supabase/tests/` (`009_010_reorg_read_layer_test.sql` for reorg and the read layer, `012_roles_test.sql` and `013_has_permission_test.sql` for roles, `014_close_allocation_test.sql`, `015_allocation_wrappers_test.sql` and `016_020_wrappers_test.sql` for the write functions and wrappers, `021_permission_check_test.sql`, `022_rename_unit_test.sql`) |
