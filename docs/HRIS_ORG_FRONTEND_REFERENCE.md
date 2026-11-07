@@ -1,17 +1,19 @@
 # HRIS ORG Frontend Reference
 
-Last updated: 2026-11-06
+Last updated: 2026-11-07
 Purpose: Everything the frontend needs to know about the ORG (Organization structure) database: what it can read, what it can write, the rules and errors. Use it instead of reading the migration files.
 Read together with: `HRIS_PROJECT_OVERVIEW.md` (shared access model, dates and implementation notes), `HRIS_ORG_STATUS.md`, `HRIS_NAMING_CONVENTION.md`
 
-Covers migrations `002` to `011` (ORG), `014` to `020` and `022` (ORG write wrappers), `023` and `024` (history views), plus `001` where tenancy matters. Migrations `012` and `013` (roles) are covered only where they affect the frontend (sections 8, 9 and 11). All applied on the dev project. Tests for `002` to `013`, `021` and `022` passed. `023` and `024` were checked in the browser (ORG Stage 9i, passed), there is no SQL test file for them. Test results for `014` to `020` are not yet confirmed (see `HRIS_ORG_STATUS.md`). Not reviewed for this document: `000_create_schemas.sql`, the files in `lib/supabase/`, and the definitions of the `023` views (their columns were taken from the generated `database.types.ts`).
+Covers migrations `002` to `011` (ORG), `014` to `020` and `022` (ORG write wrappers), `023` and `024` (closed views), `026` to `029` (trimmed names, history reads, Phnom Penh date), plus `001` where tenancy matters. Migrations `012` and `013` (roles) are covered only where they affect the frontend (sections 8, 9 and 11). All applied on the dev project. Tests for `002` to `013`, `021`, `022`, `026` and `029` passed. `023`, `024` and `028` were checked in the browser (ORG Stages 9i and 9k, passed), there is no SQL test file for them. Test results for `014` to `020` are not yet confirmed (see `HRIS_ORG_STATUS.md`). Not reviewed for this document: `000_create_schemas.sql`, the files in `lib/supabase/`, and the definitions of the `023` and `028` objects (their columns were not recorded, take them from the generated `database.types.ts`).
+
+**To complete:** (1) the column lists and argument names of the `028` objects (section 3, marked "not recorded"), (2) the `ORG-T023` frontend changes (section 10, marked "not recorded"). Both need files that were not sent (`HRIS_ORG_STATUS.md`, section 7).
 
 ---
 
 ## 1. Scope and access
 
 - This document covers the ORG module only. Other modules will have their own reference.
-- The frontend reads ORG data through **14 views and 4 functions in `public`** (section 3) and writes through **18 `public` write wrappers** (section 8). Every ORG screen is wired: allocation form and headcount grid (ORG Stage 9d), org and position tree screens (9f), jobs and Department listings (9g), hierarchy configuration (9h). The history view (9i) reads the closed views. Role-aware buttons use `public.check_permissions` (section 8.5).
+- The frontend reads ORG data through **16 views and 8 functions in `public`** (section 3) and writes through **18 `public` write wrappers** (section 8). Every ORG screen is wired: allocation form and headcount grid (ORG Stage 9d), org and position tree screens (9f), jobs and Department listings (9g), hierarchy configuration (9h). The history views (9i) read the closed views, the as-of and Moves views (9k) read the `028` objects, Re-create buttons (9l) reuse the add dialogs. Role-aware buttons use `public.check_permissions` (section 8.5).
 - Every wrapper checks the caller's permission with `private.has_permission` (migrations `012`, `013`). Reads are still open to every tenant member (history included) and are not permission-checked.
 - The roles and permission tables are not exposed in `public`. The frontend asks `public.check_permissions` instead (section 8.5, gap G8 closed).
 - The shared access model (who can call what, which rows are visible, empty results, secret keys) is in `HRIS_PROJECT_OVERVIEW.md`, section 5.4. Nothing in ORG changes it.
@@ -58,9 +60,10 @@ Khmer level names (`name_km` in `hierarchy_levels`) are empty for now.
 - **Allocation:** org unit + job + position unit + approved headcount. The job's Department must be listed for the org unit. The position unit is the job's own Department or an open Office, Section or Group anywhere below it.
 
 ### Open and closed
-- Everything has `valid_from` and `valid_to`. **Open (current) means `valid_to` is empty.** The `*_current` views and all functions in `public` return open rows only (except `parent_companies` and `hierarchy_levels`, which are not dated).
+- Everything has `valid_from` and `valid_to`. **Open (current) means `valid_to` is empty.** The `*_current` views and the option functions in `public` return open rows only (except `parent_companies` and `hierarchy_levels`, which are not dated, and the as-of functions, which answer for a chosen date).
 - Closed rows are history. They are read through the `*_closed` views (section 3).
-- **Closed records are never re-opened.** Every guard refuses changing a closed record. To bring something back, create it again: enable the level rule again, add the unit or job again (a re-created unit gets a new ID), list the Department again, or create the allocation again.
+- **Closed records are never re-opened.** Every guard refuses changing a closed record. To bring something back, create it again: enable the level rule again, add the unit or job again (a re-created unit gets a new ID), list the Department again, or create the allocation again. The Re-create button on closed units, jobs and Department listings (ORG Stage 9l) opens the add dialog pre-filled from the closed record. Closed level rules and allocations have no such button.
+- **Names have no history.** A rename replaces the name everywhere, also in history and as-of reads (name history was dropped in `027`).
 
 ---
 
@@ -82,7 +85,7 @@ Call views with `supabase.from('<view>')` and functions with `supabase.rpc('<fun
 
 ### Closed (history) views (`023`, `024`)
 
-Closed rows only (`valid_to` is set). Same visibility rules as the `*_current` views (logged-in tenant members, `security_invoker`). The views have no order: sort in the query (`valid_to` descending, then the id). Names are the **current** names of the units and jobs, so a rename also changes them in history. Supabase returns at most 1000 rows per request (not paged yet).
+Closed rows only (`valid_to` is set). Same visibility rules as the `*_current` views (logged-in tenant members, `security_invoker`). The views have no order: sort in the query (`valid_to` descending, then the id). Names are the **current** names of the units and jobs, so a rename also changes them in history. Supabase returns at most 1000 rows per request (not paged yet, the screens show a warning, see below).
 
 | View | Columns |
 |---|---|
@@ -92,7 +95,26 @@ Closed rows only (`valid_to` is set). Same visibility rules as the `*_current` v
 | `org_unit_departments_closed` | `eligibility_id`, `company_id`, `org_unit_id`, `org_unit_name_en`, `org_unit_name_km`, `department_id`, `department_name_en`, `department_name_km`, `valid_from`, `valid_to` |
 | `position_allocations_closed` | Same columns as `position_allocations_current` plus `valid_to`. A headcount change shows as one closed row holding the old headcount |
 
-Frontend: `fetchClosedRules`, `fetchClosedUnits` (pass `"org"` or `"pos"`), `fetchClosedAllocations`, `fetchClosedJobs`, `fetchClosedListings` in `modules/org/queries.ts`. They skip rows with an empty key column and return newest closed first.
+Frontend: `fetchClosedRules`, `fetchClosedUnits` (pass `"org"` or `"pos"`), `fetchClosedAllocations`, `fetchClosedJobs`, `fetchClosedListings` in `modules/org/queries.ts`. They skip rows with an empty key column, return newest closed first, and return `LimitedRows<T>` (see "Row limit" below).
+
+### Reorg history views and as-of functions (`028`)
+
+**Column lists and argument names: not recorded here.** Take them from the generated `database.types.ts`. What is known:
+
+| Object | Kind | What it gives |
+|---|---|---|
+| `org_unit_parent_links_closed`, `pos_unit_parent_links_closed` | Views | Closed parent links of units. A column `unit_valid_to` is empty when the unit itself is still open, which means the link ended by a reorg (a closed unit's last link ends with the unit). The Moves (reorg) view keeps only those links |
+| `org_units_as_of`, `pos_units_as_of` | Functions, `(company, date)` | The units valid on the date, with the parent they had then |
+| `position_allocations_as_of` | Function, `(company, date)` | The allocations valid on the date, with a nullable `valid_to` |
+| `org_unit_departments_as_of` | Function, `(company, date)` | The Department listings valid on the date |
+
+Date rules for as-of reads (`ORG-D12`): the date is required. `valid_to` is the last valid day, inclusive. Where two rows touch on one date (reorg, headcount change, re-listing) the row that started later wins, then the higher id. Names are the current names. A reorg with a future date takes effect immediately in the `*_current` views, but an as-of read before that date still shows the old parent (known limitation).
+
+Frontend: `modules/org/queriesHistory.ts` has `fetchUnitsAsOf(tree, companyId, asOf)`, `fetchAllocationsAsOf`, `fetchListingsAsOf` and `fetchUnitMoves(tree, companyId)` (reads the two link views, keeps only links that ended by a reorg, newest first). All return `LimitedRows<T>`. Screens load them through the `useAsOfLoad` hook with a memoised loader.
+
+### Row limit (ORG-T020)
+
+Supabase returns at most 1000 rows per request. `modules/org/limits.ts` holds `MAX_ROWS` (1000) and `isRowLimitReached`. `LimitedRows<T>` is `{ rows, limitReached }`. The count is taken on the raw rows, before rows with an empty key column are skipped. Every list shows the shared `RowLimitWarning` when `limitReached` is true. Lists loaded in `app/page.tsx` cover all companies in one request, so their limit counts all companies together. Real paging is not built.
 
 ### Functions
 | Function | Parameters | Returns (ordered) |
@@ -101,6 +123,8 @@ Frontend: `fetchClosedRules`, `fetchClosedUnits` (pass `"org"` or `"pos"`), `fet
 | `eligible_departments` | `p_company_id`, `p_org_unit_id` | Same columns. Departments listed for that org unit, by English name |
 | `pos_options` | `p_company_id`, `p_parent_unit_id` (required) | Same columns. Offices, Sections or Groups directly under that position unit, by level rank then English name. **Top-level Departments do not come from here**, they come from `eligible_departments` |
 | `eligible_jobs` | `p_company_id`, `p_org_unit_id`, `p_department_id` | `job_position_id`, `name_en`, `name_km`. Open jobs of that Department, only if the Department is listed for that org unit. Otherwise empty |
+
+The four as-of functions (above) complete the 8 functions of section 1.
 
 Example:
 ```ts
@@ -134,7 +158,7 @@ Rules for the form:
 
 Implemented in `modules/org/components/AllocationForm.tsx`, using `CascadeSelector`, `AsyncSelect` and the wrappers in `modules/org/queries.ts`. The duplicate check is `fetchExistingAllocation`. Save calls `public.create_allocation` (ORG Stage 9d) and is disabled when the user lacks `org.allocation.write` for the org unit and Department (ORG Stage 9e).
 
-Headcount grid: read `position_allocations_current` filtered by `company_id`. Implemented in `modules/org/components/HeadcountGrid.tsx`. Allocations are never edited. To change a headcount call `public.change_allocation_headcount` (closes the allocation and creates the replacement in one transaction). To remove an allocation call `public.close_allocation`. Closed allocations (including replaced headcounts) are read from `position_allocations_closed` and shown on the Headcount tab under Closed (history) (`ClosedAllocations.tsx`, ORG Stage 9i).
+Headcount grid: read `position_allocations_current` filtered by `company_id`. Implemented in `modules/org/components/HeadcountGrid.tsx`. Allocations are never edited. To change a headcount call `public.change_allocation_headcount` (closes the allocation and creates the replacement in one transaction). To remove an allocation call `public.close_allocation`. Closed allocations (including replaced headcounts) are read from `position_allocations_closed` and shown on the Headcount tab under Closed (history) (`ClosedAllocations.tsx`, ORG Stage 9i). The approved headcount on a past date is shown by `AsOfHeadcount.tsx` (ORG Stage 9k).
 
 ---
 
@@ -224,10 +248,10 @@ Closing a job automatically closes its open allocations.
 
 | Item | Detail |
 |---|---|
-| Blank names | The write wrappers refuse a missing or blank English name (`The English name is required`). `create_org_unit` and `create_pos_unit` store the name **as sent**, so trim it in the form (`createUnit` does). The rename and job functions trim it themselves |
+| Blank names | The write wrappers refuse a missing or blank English name (`The English name is required`). Since `026` the create, rename and job functions also trim both names and store an empty Khmer name as null. The form should still trim and validate, to give the message early |
 | Name length | No limit |
 | Duplicate unit names | Allowed (two units named the same under one parent). Only job titles are unique, inside a Department |
-| Khmer names | `name_km` is optional and not validated. Job functions trim it and store an empty value as null. Language fallback rule is in `HRIS_PROJECT_OVERVIEW.md`, section 5.6. Level names have no Khmer text yet |
+| Khmer names | `name_km` is optional and not validated. Language fallback rule is in `HRIS_PROJECT_OVERVIEW.md`, section 5.6. Level names have no Khmer text yet |
 | Headcount maximum | None. Only 0 or more, whole number |
 
 ---
@@ -235,9 +259,9 @@ Closing a job automatically closes its open allocations.
 ## 7. Dates in ORG functions
 
 The shared rule (server date is UTC, pass dates explicitly) is in `HRIS_PROJECT_OVERVIEW.md`, section 5.5. ORG specifics:
-- Every date parameter of a write wrapper defaults to the server's date (UTC). **Pass the date explicitly from the frontend** when the user picks one.
-- Dates the user can choose: allocation start (`create_allocation`), Department listing start (`add_department_listing`), and the close or effective date of every close, reorg and headcount change.
-- `create_org_unit`, `create_pos_unit`, `create_job_position` and `enable_level_rule` have no date parameter: the record starts **today by the server's date**. No backdating or future dating is possible through them.
+- **Phnom Penh date (since `029`):** `create_org_unit`, `create_pos_unit`, `create_job_position` and `enable_level_rule` have no date parameter. The record starts **today by the Phnom Penh date** (UTC+7), taken from `private.org_today()`. No backdating or future dating is possible through them.
+- **Still the UTC date (known limitation `ORG-T021b`):** every other date parameter of a write wrapper (`create_allocation`, `close_allocation`, `change_allocation_headcount`, `close_*`, `reorg_*`, `add_department_listing`, `remove_department_listing`, `disable_level_rule`) defaults to the server's UTC date. **Always pass the date explicitly from the frontend.** Default the form field with `todayInPhnomPenh()` (`lib/dates.ts`) and let the user change it.
+- Dates the user can choose: allocation start, Department listing start, and the close or effective date of every close, reorg, headcount change and rule disable.
 - A start date cannot be earlier than the start of the things the new row depends on. A close or reorg date cannot be earlier than the start of the rows it ends (messages in section 8).
 - A future date takes effect immediately, because "current" is defined as an empty `valid_to`. There is no "starts later" state.
 
@@ -247,27 +271,27 @@ The shared rule (server date is UTC, pass dates explicitly) is in `HRIS_PROJECT_
 
 ### 8.1 Public wrappers (callable from the frontend)
 
-All are in `public`, `security definer`, granted to `authenticated` and `service_role` only (not `anon`). Each checks the caller's permission, then calls the matching `private` function. Call them with `supabase.rpc('<name>', { ... })`. Parameters with a default can be omitted. All ids are integers. "Today" means the server date (UTC), so pass dates explicitly.
+All are in `public`, `security definer`, granted to `authenticated` and `service_role` only (not `anon`). Each checks the caller's permission, then calls the matching `private` function. Call them with `supabase.rpc('<name>', { ... })`. Parameters with a default can be omitted. All ids are integers. "Today" in the table means the server date (UTC), so pass dates explicitly (section 7).
 
 | Wrapper | Parameters (default) | Returns |
 |---|---|---|
 | `create_allocation` | `p_company_id`, `p_org_unit_id`, `p_job_position_id`, `p_pos_unit_id`, `p_headcount`, `p_start_date` (today) | new allocation id |
 | `close_allocation` | `p_company_id`, `p_allocation_id`, `p_close_date` (today) | nothing |
 | `change_allocation_headcount` | `p_company_id`, `p_allocation_id`, `p_new_headcount`, `p_effective_date` (today) | new allocation id. Closes the old allocation and opens the replacement on the same date, in one transaction |
-| `create_org_unit` | `p_company_id`, `p_level_id`, `p_parent_unit_id` (null = under the company), `p_name_en`, `p_name_km` (null) | new unit id |
+| `create_org_unit` | `p_company_id`, `p_level_id`, `p_parent_unit_id` (null = under the company), `p_name_en`, `p_name_km` (null) | new unit id. Starts on the Phnom Penh date |
 | `close_org_unit` | `p_company_id`, `p_unit_id`, `p_close_date` (today) | nothing |
 | `reorg_org_unit` | `p_company_id`, `p_unit_id`, `p_new_parent_id` (null = to the company), `p_effective_date` (today) | nothing |
-| `create_pos_unit` | `p_company_id`, `p_level_id`, `p_parent_unit_id` (null = a new Department), `p_name_en`, `p_name_km` (null) | new unit id |
+| `create_pos_unit` | `p_company_id`, `p_level_id`, `p_parent_unit_id` (null = a new Department), `p_name_en`, `p_name_km` (null) | new unit id. Starts on the Phnom Penh date |
 | `close_pos_unit` | `p_company_id`, `p_unit_id`, `p_close_date` (today) | nothing |
 | `reorg_pos_unit` | `p_company_id`, `p_unit_id`, `p_new_parent_id` (null = to the top), `p_effective_date` (today) | nothing |
 | `rename_org_unit` | `p_company_id`, `p_unit_id`, `p_name_en`, `p_name_km` (null) | nothing. Replaces both names (trimmed), an empty Khmer name clears it |
 | `rename_pos_unit` | `p_company_id`, `p_unit_id`, `p_name_en`, `p_name_km` (null) | nothing. Same as `rename_org_unit` |
-| `create_job_position` | `p_company_id`, `p_department_id`, `p_name_en`, `p_name_km` (null) | new job id |
+| `create_job_position` | `p_company_id`, `p_department_id`, `p_name_en`, `p_name_km` (null) | new job id. Starts on the Phnom Penh date |
 | `rename_job_position` | `p_company_id`, `p_job_id`, `p_name_en`, `p_name_km` (null) | nothing. Replaces both names, an empty Khmer name clears it |
 | `close_job_position` | `p_company_id`, `p_job_id`, `p_close_date` (today) | nothing. Also closes the job's open allocations |
 | `add_department_listing` | `p_company_id`, `p_org_unit_id`, `p_department_id`, `p_start_date` (today) | new listing (eligibility) id |
 | `remove_department_listing` | `p_company_id`, `p_org_unit_id`, `p_department_id`, `p_close_date` (today) | nothing. A listing is found by org unit + Department, not by its id |
-| `enable_level_rule` | `p_company_id`, `p_level_id`, `p_parent_level_id` (null = directly under the root) | new rule id |
+| `enable_level_rule` | `p_company_id`, `p_level_id`, `p_parent_level_id` (null = directly under the root) | new rule id. Starts on the Phnom Penh date |
 | `disable_level_rule` | `p_company_id`, `p_rule_id`, `p_close_date` (today) | nothing. Needs the rule id from `company_level_rules_current` |
 
 Example:
@@ -278,7 +302,7 @@ const { data: newId, error } = await supabase.rpc('create_allocation', {
   p_job_position_id: jobId,
   p_pos_unit_id: posUnitId,
   p_headcount: 5,
-  p_start_date: '2026-11-06', // pass the date the user picked
+  p_start_date: todayInPhnomPenh(), // or the date the user picked
 })
 ```
 
@@ -328,7 +352,7 @@ Messages the wrappers and `private` functions can raise (besides the rules in se
 | Hierarchy rules, disable | `Rule % is not an open rule of this company` (members only, non-members get `42501`), `Close date % is earlier than %, when this rule started`. The guard still decides the three disable messages in section 5 |
 
 Create, close and reorg messages from the private functions (unchanged):
-- `create_org_unit`, `create_pos_unit`: `Parent unit % is not an open unit of this company`, `No active rule allows this level under this parent`.
+- `create_org_unit`, `create_pos_unit`: `Parent unit % is not an open unit of this company`, `No active rule allows this level under this parent`, `The English name is required`.
 - `rename_org_unit`, `rename_pos_unit`: `Org unit % is not an open unit of this company` / `Position unit % is not an open unit of this company`, `The English name is required`.
 - `close_org_unit`: `Org unit % is not an open unit of this company`, `Close date % is earlier than %, when this unit or something under it started`, plus the unit messages in section 5. `close_pos_unit` is the same with `Position unit % ...`.
 - Reorg:
@@ -348,17 +372,18 @@ Reorg keeps eligibility rows and allocations attached to the unit. It does not r
 
 | Function | Added in | Note |
 |---|---|---|
-| `create_org_unit`, `create_pos_unit` | `003`, `004` | Find the matching open rule themselves |
+| `create_org_unit`, `create_pos_unit` | `003`, `004`, replaced in `026` and `029` | Find the matching open rule themselves. Since `026` they trim the names and refuse a blank English name. Since `029` the unit and its parent link start on the Phnom Penh date |
 | `create_allocation` | `006`, **replaced in `015`** | New `p_start_date` argument (default today). The old 5-argument form was dropped, 5-argument calls still work because of the default |
 | `close_org_unit`, `close_pos_unit` | `008` | Closing cascades (section 5) |
 | `reorg_org_unit`, `reorg_pos_unit`, `pos_department_of` | `009` | |
 | `close_allocation` | `014` | |
-| `create_job_position`, `rename_job_position`, `close_job_position` | `018` | |
+| `create_job_position`, `rename_job_position`, `close_job_position` | `018`, `create_job_position` replaced in `029` | `create_job_position` starts the job on the Phnom Penh date |
 | `add_department_listing`, `remove_department_listing` | `019` | |
-| `enable_level_rule`, `disable_level_rule` | `020` | |
+| `enable_level_rule`, `disable_level_rule` | `020`, `enable_level_rule` replaced in `029` | `enable_level_rule` starts the rule on the Phnom Penh date |
 | `is_company_member` | `016` | True when the caller belongs to the company's tenant. Used by the wrappers to choose between a plain message and no hint |
 | `rename_org_unit`, `rename_pos_unit` | `022` | Trim both names. English name required |
 | `can_manage_pos_unit` | `017` | The "may the caller change this unit itself" rule shared by `close_pos_unit` and `reorg_pos_unit` |
+| `org_today` | `029` | Today's date in Phnom Penh (UTC+7). The one source of "today" in SQL. Shared by all modules despite the name |
 
 ### 8.5 Permission check for the frontend (`check_permissions`, migration `021`)
 
@@ -377,7 +402,7 @@ Pass all targets of a screen in one call (the headcount grid does this for every
 ### 8.6 Write functions that do not exist yet
 | Needed by | Missing function |
 |---|---|
-| Setup | Create tenant, company and tenant membership (dev data was seeded by hand, see `HRIS_ORG_STATUS.md`, section 4) |
+| Setup | Create tenant, company and tenant membership (dev data was seeded by hand, see `HRIS_ORG_STATUS.md`, section 5.4) |
 | Members screen | Give and remove roles (no function or screen yet) |
 
 ---
@@ -391,10 +416,11 @@ Pass all targets of a screen in one call (the headcount grid does this for every
 | G3 | ~~No `public` write functions~~ | **Closed** by migrations `015` to `020` (and `014`) and `022`: section 8. All screens are wired (ORG Stages 9d, 9f, 9g, 9h) | none |
 | G4 | ~~Missing write functions~~ | **Mostly closed** by `014`, `018`, `019`, `020`, `022`. Still missing: tenant/company/membership setup, role management (section 8.6) | New migrations when a screen needs them |
 | G5 | ~~No roles or permissions~~ | **Closed for writes** by `012`, `013` and the wrappers: every wrapper calls `private.has_permission`. Reads stay open to every tenant member. Shared topic, see `HRIS_PROJECT_OVERVIEW.md`, section 5.7 | none |
-| G6 | ~~No history views~~ | **Closed** by migrations `023` and `024` (ORG Stage 9i): closed rules, units, jobs, Department listings and allocations (section 3). Not provided: the past parent links of units that are still open (reorg history) and "as of date" reads | Add if a screen needs them |
-| G7 | Khmer level names empty | Level labels show English only | Seed migration (ORG Stage 2b, skipped for now) |
+| G6 | ~~No history views~~ | **Closed** by migrations `023` and `024` (closed rules, units, jobs, Department listings and allocations) and `028` (reorg history and as-of reads, section 3). Names in history are the current names (`027`) | none |
+| G7 | Khmer level names empty | Level labels show English only | Seed migration (ORG Stage 2b, `ORG-T022`, needs the names) |
 | G8 | ~~No read object for the caller's own permissions~~ | **Closed** by migration `021` (`public.check_permissions`, section 8.5) and `modules/org/permissions.ts`. Allocation form and headcount grid use it | none |
-| G9 | History lists and the headcount grid are not paged | Supabase returns at most 1000 rows per request, so a list or total would be too low beyond that | Add paging when real data volume is known |
+| G9 | History lists, as-of reads and the headcount grid are not paged | Supabase returns at most 1000 rows per request, so a list or total would be too low beyond that. A warning shows on every list (`ORG-T020`, `ORG-T023`) | Real paging when real data volume is known |
+| G10 | Date parameters of the close, reorg, listing, allocation and disable-rule functions default to the UTC date | A call without a date between 00:00 and 07:00 in Phnom Penh is dated one day early. The frontend always passes the date | Accepted (`ORG-T021b`), see section 7 |
 
 ---
 
@@ -407,12 +433,16 @@ Shared notes (generated types, `cacheComponents`, language fallback) are in `HRI
 - **Empty lists:** show a reason ("no Departments listed for this org unit") instead of an empty dropdown.
 - **Reusable pieces:** `AsyncSelect` and `CascadeSelector` load their own options. Pass them a memoised (`useCallback`) loader, and give them a `key` that includes whatever they depend on (company, parent choice) so they reset.
 - **Units for trees:** `app/page.tsx` loads `org_units_current` and `pos_units_current` for all visible companies and the browser filters by company. Revisit if a tenant ever has many thousands of units.
-- **Allocations for the headcount grid:** `app/page.tsx` loads `position_allocations_current` for all visible companies without paging. Supabase returns at most 1000 rows per request by default, so the grid and its total would be too low beyond that. Revisit when real data volume is known.
+- **Allocations for the headcount grid:** `app/page.tsx` loads `position_allocations_current` for all visible companies without paging, counts the raw rows and passes `allocationsLimitReached` through `OrgConfigView` to the grid (`limitReached`). Revisit when real data volume is known.
+- **Row-limit warning for units and rules (`ORG-T023`):** the org unit, position unit and level rule lists loaded in `app/page.tsx` also show the warning. Not recorded here: which props and files changed (needs `app/page.tsx` and `OrgConfigView.tsx`, `HRIS_ORG_STATUS.md` issue `ORG-I08`).
 - **Calling a wrapper:** `error.code === '42501'` means no permission. Show a fixed "you do not have permission" message. Show the database message for other errors (they are written for users), and refresh the lists after a successful write because views return only open rows.
 - **Passing null:** `p_parent_unit_id`, `p_new_parent_id` have no default. Send `null` explicitly for "under the company" or "top of the tree". The generated types say `number`, so `queries.ts` casts (`value as number`).
-- **Unit management (ORG Stage 9f):** `OrgTreeExplorer` takes an optional `manage` prop (tree, company, levels, the company's rules). Without it the tree is read-only. The levels offered for a new unit and the places a unit can move to come from the open rules (`modules/org/unitTree.ts`), never from a fixed list. Where each permission is checked: org tree at the unit. Position tree at the unit's Department. A Department itself and a new top-level unit use an empty target (company-wide or tenant-wide role). Add, rename, move and close all go through `createUnit`, `renameUnit`, `reorgUnit`, `closeUnit` in `queries.ts` (pass `"org"` or `"pos"`).
+- **Dates:** default date fields with `todayInPhnomPenh()` from `lib/dates.ts` and always pass the date to the write function (section 7). Never use `new Date().toISOString().slice(0, 10)`, it gives the UTC date.
+- **Unit management (ORG Stage 9f):** `OrgTreeExplorer` takes an optional `manage` prop (tree, company, levels, the company's rules). Without it the tree is read-only (the as-of view uses it that way). The levels offered for a new unit and the places a unit can move to come from the open rules (`modules/org/unitTree.ts`), never from a fixed list. Where each permission is checked: org tree at the unit. Position tree at the unit's Department. A Department itself and a new top-level unit use an empty target (company-wide or tenant-wide role). Add, rename, move and close all go through `createUnit`, `renameUnit`, `reorgUnit`, `closeUnit` in `queries.ts` (pass `"org"` or `"pos"`).
 - **Jobs, listings and level rules (ORG Stages 9g, 9h):** the Jobs tab, Department listings tab and Configuration tab load their open rows with `fetchJobs`, `fetchListings` and the rules passed from `app/page.tsx`, reload after each save and call `router.refresh()`. Jobs check `pos.job.write` at the Department, listings check `org.eligibility.write` at the org unit, level rules check `org.config.write` with one empty target. The enable and disable forms offer only valid choices, and show the database guard message when a disable is refused.
-- **History (ORG Stage 9i):** six tabs (Configuration, Org tree, Position tree, Jobs, Department listings, Headcount) have a Current / Closed (history) toggle (`HistoryToggle.tsx` in `OrgConfigView.tsx`). Closed shows `ClosedRules`, `ClosedUnits`, `ClosedJobs`, `ClosedListings` or `ClosedAllocations`, each loading its own rows with the matching `fetchClosed*` function, keyed by company. History is read-only, there is no re-open (section 2). Closed names are the current names. The toggle returns to Current when the tab changes.
+- **History (ORG Stage 9i):** six tabs (Configuration, Org tree, Position tree, Jobs, Department listings, Headcount) have a Current / Closed (history) toggle (`HistoryToggle.tsx` in `OrgConfigView.tsx`). Closed shows `ClosedRules`, `ClosedUnits`, `ClosedJobs`, `ClosedListings` or `ClosedAllocations`, each loading its own rows with the matching `fetchClosed*` function, keyed by company. History is read-only. Closed names are the current names. The toggle returns to Current when the tab changes.
+- **As-of and Moves views (ORG Stage 9k):** `HistoryToggle` exports `ViewMode` (`"current"`, `"closed"`, `"asof"`, `"moves"`) and takes the `extraModes` of the tab. `OrgConfigView` keeps the state in `mode` and a `HISTORY_MODES` table: Org tree and Position tree offer As of date and Moves (reorg), Department listings and Headcount offer As of date. The screens are `AsOfUnits`, `AsOfHeadcount`, `AsOfListings` (all with `AsOfDatePicker`) and `UnitMoves`. They load through `useAsOfLoad(loader)` with a loader memoised on company and date (`useMemo`), which ties each answer to the loader that produced it, so an old answer is never shown for a newer date or company. Reuse it for new read-only history views.
+- **Re-create (ORG Stage 9l):** `ClosedUnits`, `ClosedJobs` and `ClosedListings` show a Re-create button per row. It opens the normal add dialog pre-filled from the closed record (`UnitActionDialog` `prefill`, `JobDialog` `prefill`, `ListingDialog` `prefillDepartmentId`, titled Re-create). The button is disabled with a reason when the old parent, org unit or Department is closed (units also when the level is not enabled under that parent, listings also when already listed) and hidden without the write permission. A re-created record is new and gets a new ID.
 - **A level that will not disable:** the blocker is usually an open rule that uses the level as parent, not a unit. Check `company_level_rules_current` for rules whose `parent_level_id` is that level.
 
 ---
@@ -424,8 +454,8 @@ Shared notes (generated types, `cacheComponents`, language fallback) are in `HRI
 | Tenancy, tenant helper, row level security pattern | `001_tenancy.sql` |
 | Level catalog, seeded levels, company rule table | `002_hierarchy_levels.sql` (the `parent_level_key` column is added in `003`) |
 | Latest rule guard (what blocks disabling a level) | `007_level_disable_guard.sql` |
-| Org tree, parent links, deferred link check, `create_org_unit` | `003_org_tree.sql` |
-| Position tree, `create_pos_unit` | `004_position_tree.sql` |
+| Org tree, parent links, deferred link check | `003_org_tree.sql` |
+| Position tree | `004_position_tree.sql` |
 | Job positions, Department eligibility | `005_jobs_and_eligibility.sql` |
 | Allocation table and guard, **latest** unit, job and eligibility guards | `006_allocation.sql` |
 | Close functions | `008_close_unit.sql` |
@@ -435,14 +465,18 @@ Shared notes (generated types, `cacheComponents`, language fallback) are in `HRI
 | Roles, permission codes, role scope, scope guard | `012_roles.sql` |
 | Permission check (`has_permission`, `has_tenant_permission`) | `013_has_permission.sql` |
 | `private.close_allocation` | `014_close_allocation.sql` |
-| **Latest** `private.create_allocation`, allocation wrappers | `015_allocation_wrappers.sql` |
+| Allocation wrappers (base of `private.create_allocation`, **latest**) | `015_allocation_wrappers.sql` |
 | Org unit wrappers, `private.is_company_member` | `016_org_unit_wrappers.sql` |
 | Position unit wrappers, `private.can_manage_pos_unit` | `017_pos_unit_wrappers.sql` |
-| Job position functions and wrappers | `018_job_position_functions.sql` |
+| Job position functions and wrappers (`create_job_position` is **replaced in `029`**) | `018_job_position_functions.sql` |
 | Department listing functions and wrappers | `019_department_listing_functions.sql` |
-| Level rule functions and wrappers | `020_level_rule_functions.sql` |
+| Level rule functions and wrappers (`enable_level_rule` is **replaced in `029`**) | `020_level_rule_functions.sql` |
 | `public.check_permissions` | `021_permission_check.sql` |
 | Rename unit functions and wrappers | `022_rename_unit.sql` |
 | Closed views for rules and units | `023` (file name not recorded) |
 | Closed views for jobs, Department listings and allocations | `024_history_views_jobs_listings_allocations.sql` |
-| Behaviour proven by tests | `supabase/tests/` (`009_010_reorg_read_layer_test.sql` for reorg and the read layer, `012_roles_test.sql` and `013_has_permission_test.sql` for roles, `014_close_allocation_test.sql`, `015_allocation_wrappers_test.sql` and `016_020_wrappers_test.sql` for the write functions and wrappers, `021_permission_check_test.sql`, `022_rename_unit_test.sql`) |
+| Last tenant admin guard (platform) | `025_last_tenant_admin_guard.sql` |
+| Trimmed names (**latest** before `029` for `create_org_unit`, `create_pos_unit`) | `026_name_history.sql` (the name history part was dropped by `027_revert_name_history.sql`) |
+| Reorg history views and as-of functions | `028_history_reads.sql` |
+| `private.org_today()` and the **latest** `create_org_unit`, `create_pos_unit`, `create_job_position`, `enable_level_rule` | `029_phnom_penh_dates.sql` |
+| Behaviour proven by tests | `supabase/tests/` (`009_010_reorg_read_layer_test.sql` for reorg and the read layer, `012_roles_test.sql` and `013_has_permission_test.sql` for roles, `014_close_allocation_test.sql`, `015_allocation_wrappers_test.sql` and `016_020_wrappers_test.sql` for the write functions and wrappers, `021_permission_check_test.sql`, `022_rename_unit_test.sql`, `026_trimmed_names_test.sql`, `029_phnom_penh_dates_test.sql`) |
