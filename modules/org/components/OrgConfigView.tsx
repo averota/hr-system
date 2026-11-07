@@ -13,6 +13,7 @@ import type {
   UnitRow,
 } from "@/modules/org/types";
 import { AllocationForm } from "./AllocationForm";
+import { AsOfUnits } from "./AsOfUnits";
 import { ClosedAllocations } from "./ClosedAllocations";
 import { ClosedJobs } from "./ClosedJobs";
 import { ClosedListings } from "./ClosedListings";
@@ -21,7 +22,7 @@ import { ClosedUnits } from "./ClosedUnits";
 import { DepartmentListings } from "./DepartmentListings";
 import { HeadcountGrid } from "./HeadcountGrid";
 import { HierarchyConfig } from "./HierarchyConfig";
-import { HistoryToggle } from "./HistoryToggle";
+import { HistoryToggle, type ViewMode } from "./HistoryToggle";
 import { JobCatalog } from "./JobCatalog";
 import { OrgTreeExplorer } from "./OrgTreeExplorer";
 
@@ -54,6 +55,9 @@ const HISTORY_TABS: TabId[] = [
   "headcount",
 ];
 
+// Tabs that can also show an as-of date view (ORG Stage 9k).
+const AS_OF_TABS: TabId[] = ["org-tree", "pos-tree"];
+
 interface OrgConfigViewProps {
   userEmail: string;
   companies: ParentCompany[];
@@ -76,7 +80,7 @@ export function OrgConfigView({
   const router = useRouter();
   const [locale, setLocale] = useState<Locale>("en");
   const [activeTab, setActiveTab] = useState<TabId>("config");
-  const [showHistory, setShowHistory] = useState(false);
+  const [mode, setMode] = useState<ViewMode>("current");
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(
     companies[0]?.company_id ?? null
   );
@@ -92,7 +96,7 @@ export function OrgConfigView({
 
   function selectTab(tab: TabId) {
     setActiveTab(tab);
-    setShowHistory(false);
+    setMode("current");
   }
 
   const companyRules = rules.filter((r) => r.company_id === selectedCompanyId);
@@ -225,12 +229,16 @@ export function OrgConfigView({
           <>
             {HISTORY_TABS.includes(activeTab) && (
               <div className="flex justify-end">
-                <HistoryToggle showHistory={showHistory} onChange={setShowHistory} />
+                <HistoryToggle
+                  mode={mode}
+                  onChange={setMode}
+                  allowAsOf={AS_OF_TABS.includes(activeTab)}
+                />
               </div>
             )}
 
             {activeTab === "config" &&
-              (showHistory ? (
+              (mode === "closed" ? (
                 <ClosedRules
                   key={`closed-cfg-${selectedCompanyId}`}
                   companyId={selectedCompanyId}
@@ -247,9 +255,16 @@ export function OrgConfigView({
               ))}
 
             {activeTab === "org-tree" &&
-              (showHistory ? (
+              (mode === "closed" ? (
                 <ClosedUnits
                   key={`closed-org-${selectedCompanyId}`}
+                  tree="org"
+                  companyId={selectedCompanyId}
+                  locale={locale}
+                />
+              ) : mode === "asof" ? (
+                <AsOfUnits
+                  key={`asof-org-${selectedCompanyId}`}
                   tree="org"
                   companyId={selectedCompanyId}
                   locale={locale}
@@ -272,9 +287,16 @@ export function OrgConfigView({
               ))}
 
             {activeTab === "pos-tree" &&
-              (showHistory ? (
+              (mode === "closed" ? (
                 <ClosedUnits
                   key={`closed-pos-${selectedCompanyId}`}
+                  tree="pos"
+                  companyId={selectedCompanyId}
+                  locale={locale}
+                />
+              ) : mode === "asof" ? (
+                <AsOfUnits
+                  key={`asof-pos-${selectedCompanyId}`}
                   tree="pos"
                   companyId={selectedCompanyId}
                   locale={locale}
@@ -297,7 +319,7 @@ export function OrgConfigView({
               ))}
 
             {activeTab === "jobs" &&
-              (showHistory ? (
+              (mode === "closed" ? (
                 <ClosedJobs
                   key={`closed-jobs-${selectedCompanyId}`}
                   companyId={selectedCompanyId}
@@ -314,7 +336,7 @@ export function OrgConfigView({
               ))}
 
             {activeTab === "listings" &&
-              (showHistory ? (
+              (mode === "closed" ? (
                 <ClosedListings
                   key={`closed-listings-${selectedCompanyId}`}
                   companyId={selectedCompanyId}
@@ -342,7 +364,7 @@ export function OrgConfigView({
             )}
 
             {activeTab === "headcount" &&
-              (showHistory ? (
+              (mode === "closed" ? (
                 <ClosedAllocations
                   key={`closed-hc-${selectedCompanyId}`}
                   companyId={selectedCompanyId}

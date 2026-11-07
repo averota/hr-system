@@ -167,6 +167,27 @@ export type Database = {
         }
         Relationships: []
       }
+      org_unit_parent_links_closed: {
+        Row: {
+          company_id: number | null
+          level_code: string | null
+          level_id: number | null
+          level_name_en: string | null
+          level_name_km: string | null
+          level_rank: number | null
+          link_id: number | null
+          name_en: string | null
+          name_km: string | null
+          parent_name_en: string | null
+          parent_name_km: string | null
+          parent_unit_id: number | null
+          unit_id: number | null
+          unit_valid_to: string | null
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Relationships: []
+      }
       org_units_closed: {
         Row: {
           company_id: number | null
@@ -223,6 +244,27 @@ export type Database = {
           name_en?: string | null
           name_km?: string | null
           tenant_id?: number | null
+        }
+        Relationships: []
+      }
+      pos_unit_parent_links_closed: {
+        Row: {
+          company_id: number | null
+          level_code: string | null
+          level_id: number | null
+          level_name_en: string | null
+          level_name_km: string | null
+          level_rank: number | null
+          link_id: number | null
+          name_en: string | null
+          name_km: string | null
+          parent_name_en: string | null
+          parent_name_km: string | null
+          parent_unit_id: number | null
+          unit_id: number | null
+          unit_valid_to: string | null
+          valid_from: string | null
+          valid_to: string | null
         }
         Relationships: []
       }
@@ -442,6 +484,33 @@ export type Database = {
           unit_id: number
         }[]
       }
+      org_unit_departments_as_of: {
+        Args: { p_as_of: string; p_company_id: number }
+        Returns: {
+          company_id: number
+          department_id: number
+          eligibility_id: number
+          org_unit_id: number
+          valid_from: string
+          valid_to: string
+        }[]
+      }
+      org_units_as_of: {
+        Args: { p_as_of: string; p_company_id: number }
+        Returns: {
+          level_code: string
+          level_id: number
+          level_name_en: string
+          level_name_km: string
+          level_rank: number
+          name_en: string
+          name_km: string
+          parent_unit_id: number
+          unit_id: number
+          valid_from: string
+          valid_to: string
+        }[]
+      }
       pos_options: {
         Args: { p_company_id: number; p_parent_unit_id: number }
         Returns: {
@@ -450,6 +519,45 @@ export type Database = {
           name_en: string
           name_km: string
           unit_id: number
+        }[]
+      }
+      pos_units_as_of: {
+        Args: { p_as_of: string; p_company_id: number }
+        Returns: {
+          level_code: string
+          level_id: number
+          level_name_en: string
+          level_name_km: string
+          level_rank: number
+          name_en: string
+          name_km: string
+          parent_unit_id: number
+          unit_id: number
+          valid_from: string
+          valid_to: string
+        }[]
+      }
+      position_allocations_as_of: {
+        Args: { p_as_of: string; p_company_id: number }
+        Returns: {
+          allocation_id: number
+          approved_headcount: number
+          company_id: number
+          department_id: number
+          department_name_en: string
+          department_name_km: string
+          job_name_en: string
+          job_name_km: string
+          job_position_id: number
+          org_unit_id: number
+          org_unit_name_en: string
+          org_unit_name_km: string
+          pos_level_code: string
+          pos_unit_id: number
+          pos_unit_name_en: string
+          pos_unit_name_km: string
+          valid_from: string
+          valid_to: string
         }[]
       }
       remove_department_listing: {
