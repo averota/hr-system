@@ -1,8 +1,8 @@
 # HRIS Project Overview
 
-Last updated: 2026-11-06
-Purpose: Entry point for the whole HRIS project: the module list, the technical setup and conventions every module shares, and how to resume work in a new chat.
-Read together with: `HRIS_NAMING_CONVENTION.md`, and the module documents listed in section 2
+Last updated: 2026-11-07
+Purpose: Entry point for the whole HRIS project: the document set, the technical setup and conventions every module shares, and how to resume work in a new chat.
+Read together with: `HRIS_MODULE_REGISTER.md` (the module list), `HRIS_CONTEXT.md` (Cambodia and company assumptions), `HRIS_BUILD_STANDARDS.md` (how modules are built), `HRIS_NAMING_CONVENTION.md`, `HRIS_MODULE_TEMPLATES.md`, and the module documents listed in the register
 
 This document holds only what is **shared by all modules**. Anything specific to one module lives in that module's documents.
 
@@ -10,22 +10,38 @@ This document holds only what is **shared by all modules**. Anything specific to
 
 ## 1. What HRIS is
 
-An all-in-one HRIS platform covering human resources, employee profile, leave management, attendance and payroll (from the Project description). It is built **one module at a time**, in small stages, each validated before the next one starts.
+An all-in-one HRIS platform covering human resources, employee profile, leave management, attendance and payroll (from the Project description). It is built **one module at a time**, in small stages (vertical slices), each validated before the next one starts. How is set out in `HRIS_BUILD_STANDARDS.md`.
+
+### 1.1 Cambodia context: assumptions to verify
+
+Moved to `HRIS_CONTEXT.md`. It holds the assumptions (public holidays, statutory leave, working hours, contracts, NSSF, tax, currency, Khmer language and calendar, retention, personal data), each with an ID (`CTX-01` to `CTX-14`), the module that owns it, and its verification status.
+
+- **Nothing in it is verified** until its row says so. The owning module checks its rows **before its Phase P1 closes**. No rule is built from the list alone.
+- Specific rates, limits and periods are not written there. They go in the module Blueprint once verified, with the source and the `CTX-nn` reference.
+
+### 1.2 Project documents
+
+| Document | Holds | Changes |
+|---|---|---|
+| `HRIS_PROJECT_OVERVIEW.md` | This file: shared technical setup, platform design, lessons, open items, how to resume | When something shared by all modules changes |
+| `HRIS_MODULE_REGISTER.md` | Module list: build order, code, scope, dependencies, state, documents | When a module starts, changes scope or changes state |
+| `HRIS_CONTEXT.md` | Cambodia and company assumptions, with verification results | When a module verifies an item |
+| `HRIS_BUILD_STANDARDS.md` | Phases, Stages, definition of done, scenario checklist, working rules for Claude | Rarely |
+| `HRIS_NAMING_CONVENTION.md` | Names of files, tables, functions, codes | Rarely |
+| `HRIS_MODULE_TEMPLATES.md` | Skeletons for the module documents | Rarely |
+| `HRIS_<MODULE>_BLUEPRINT.md` | The module's **foundation**: requirements, assumptions, design, database design, decisions | Written before building. Afterwards only through its decision table |
+| `HRIS_<MODULE>_STATUS.md` | The module's **plan and progress**: Stage plan, tasks, stage log, files, tests, limitations | At the end of every Stage |
+| `HRIS_<MODULE>_FRONTEND_REFERENCE.md` | What a frontend needs to know about the module's database | Created when the database is ready for a frontend, then kept current |
 
 ---
 
 ## 2. Module register
 
-| Module | Code | Scope | State | Documents |
-|---|---|---|---|---|
-| Organization structure | `ORG` | Org tree, position tree, job catalog, Department eligibility, approved headcount allocation | Stages 0 to 9i complete (database, frontend with write screens, permissions, history of closed records). Stage 9j (name history, migration `026`) written, not yet tested. Stage 9k (history reads, migration `027`) planned | `HRIS_ORG_STATUS.md`, `HRIS_ORG_FRONTEND_REFERENCE.md` |
-| Members, roles and setup | code to be chosen | Create tenant, company and membership; give and remove roles; members screen | Planning document first, then code (`HRIS_ORG_STATUS.md`, section 6, Next plan). Last tenant admin guard (`025`) written, not yet tested | none yet |
-| Employee profile | not assigned | Not started. Scope not discussed yet. Hiring, transfers and promotions linked to ORG allocations were noted earlier as "employee hooks" and belong here, not in ORG | Not started | none |
-| Leave management | not assigned | Not started. Scope not discussed yet | Not started | none |
-| Attendance | not assigned | Not started. Scope not discussed yet | Not started | none |
-| Payroll | not assigned | Not started. Scope not discussed yet | Not started | none |
+The module register is kept in **`HRIS_MODULE_REGISTER.md`**: build order, code, scope, dependencies, state and documents of every module. It is the only place that lists modules, so this document does not repeat it and the two cannot disagree. Where an older document says "Overview, section 2", it means the register.
 
-Starting a module: choose a short uppercase code, add it to this table, then create `HRIS_<CODE>_STATUS.md` (and `HRIS_<CODE>_FRONTEND_REFERENCE.md` once it has a frontend). See `HRIS_NAMING_CONVENTION.md`.
+- **Starting a module:** add or update its row in the register, write `HRIS_<CODE>_BLUEPRINT.md` and `HRIS_<CODE>_STATUS.md` from `HRIS_MODULE_TEMPLATES.md`, and answer the scenario checklist (`HRIS_BUILD_STANDARDS.md`, section 5) in the Blueprint before Stage 1. Create `HRIS_<CODE>_FRONTEND_REFERENCE.md` once the database is ready for a frontend. See `HRIS_NAMING_CONVENTION.md`.
+- **During the build:** the Blueprint stays stable, the Status changes every Stage. After a Stage passes, update the module's Status first, then its register row if the state changed.
+- **Module context:** the register row names the `CTX-nn` items a module must verify (see `HRIS_CONTEXT.md`).
 
 ---
 
@@ -38,6 +54,7 @@ Starting a module: choose a short uppercase code, add it to this table, then cre
 | Layout | `app/` folder at project root (no `src/`) |
 | Hosting | Vercel |
 | Backend | Supabase (Postgres, Auth) |
+| File storage | Cloudflare R2 (planned, not set up yet). Private bucket, signed links, only metadata in the database |
 | Editor | VS Code on Windows (use **PowerShell**, not bash) |
 | Next.js setting | `cacheComponents` is enabled |
 | Files in place | `lib/supabase/env.ts`, `lib/supabase/client.ts`, `lib/supabase/server.ts` |
@@ -61,13 +78,9 @@ Starting a module: choose a short uppercase code, add it to this table, then cre
 
 ---
 
-## 4. Working rules (apply to all code help)
+## 4. Working rules
 
-- Keep explanations minimal and in plain English, focused on what changed.
-- Share a downloadable file only when it is a complete code file.
-- Never guess missing logic. If a dependency, config or reference file is missing, ask for it or ask whether to generate it.
-- Use best practices and reduce redundant code.
-- Break work into small stages. Validate each one before moving on. Simple stages may be combined into one SQL file and one test run.
+Moved to `HRIS_BUILD_STANDARDS.md`, section 9 (working rules for Claude). The build method (phases, vertical Stages, definition of done) is in the same document.
 
 ---
 
@@ -91,7 +104,7 @@ Starting a module: choose a short uppercase code, add it to this table, then cre
 - **Bilingual names:** every name has `name_en` (required) and `name_km` (optional).
 - **Tenancy tables:** `core.tenant`, `core.parent_company` (the "company"), `core.tenant_member` (which logged-in users belong to which tenant). Created in migration `001`.
 - **Row visibility pattern:** a user sees only rows of companies whose tenant they belong to. Company-scoped tables use a policy of the form `company_id in (select id from core.parent_company)`, and `parent_company` itself is filtered through `private.user_tenant_ids()`. Reuse this pattern for every new company-scoped table.
-- **Read-only frontend:** logged-in users can only read. Writes go through controlled functions (in `private`, `service_role` only today). Frontend-callable write functions are not built yet. They will check roles (section 5.7).
+- **Frontend access:** logged-in users read through `public` views and functions. They write only through `public` write wrappers (ORG has 18, migrations `014` to `020` and `022`). Each wrapper is `security definer`, granted to `authenticated` and `service_role` (not `anon`), and checks the caller's permission with `private.has_permission` (section 5.7). The `private` write functions behind them stay `service_role` only. Not built yet: functions to create a tenant, company or membership, and to give or remove roles.
 - **Read layer:** views use `security_invoker`, so the caller's row level security applies.
 - **Privileges:** every function has an explicit `revoke` and `grant`. For anything in `public`, revoke from `public`, `anon` and `authenticated` first, then grant to `authenticated` and `service_role`.
 - **Dated rows:** the first module (ORG) keeps history with `valid_from` and `valid_to` (empty `valid_to` = current) and never edits a row, it closes it and creates a new one. Whether a later module needs the same is decided per module.
@@ -111,12 +124,12 @@ The ORG status document lists every other migration (`002` to `011`, `014` to `0
 | Question | Answer |
 |---|---|
 | Who calls the database | The browser or server, using the publishable key and the logged-in user's session (role `authenticated`) |
-| What can they do today | Read only, through objects in `public` |
-| What can they not do | Insert, update or delete anything. Read `core` or `private`. Anonymous visitors read nothing |
+| What can they do today | Read through objects in `public`. Write only through the `public` write wrappers, which check the caller's permission |
+| What can they not do | Insert, update or delete directly in tables. Read `core` or `private`. Anonymous visitors read nothing |
 | Which rows are visible | Only rows of companies whose tenant the user belongs to. A user with no membership sees nothing |
-| Roles | Stored and tested (section 5.7) but **not enforced yet**. Every member of a tenant still sees everything in that tenant, and no frontend write exists. A member added later has no role until one is given |
+| Roles | **Enforced on writes** (every wrapper checks a permission, section 5.7). **Not enforced on reads**: every member of a tenant sees everything in that tenant, history included. The frontend asks `public.check_permissions` which buttons to show. A member added later has no role until one is given |
 | Empty result | Usually means "nothing here" or "not a member". The read layer does not raise an error for unknown ids or other tenants' ids |
-| Secret keys | Never use the `service_role` or `secret` key in the browser or in any `NEXT_PUBLIC_` variable. All write functions need `service_role` |
+| Secret keys | Never use the `service_role` or `secret` key in the browser or in any `NEXT_PUBLIC_` variable. The `private` write functions need `service_role`, so the frontend calls the `public` wrappers instead |
 
 ### 5.5 Dates and time zone (all modules)
 - Anything that defaults to "today" uses the **server's date, which is UTC**. In Phnom Penh (UTC+7) the server date is still yesterday between 00:00 and 07:00 local time.
@@ -145,7 +158,7 @@ Built in migrations `012` and `013`. The ORG permission codes are listed in `HRI
 | Visibility of assignments | A user sees only their own. Who may see all of a tenant's assignments is decided with the members screen | Adopted |
 | `members.manage` | Tenant-wide only. A company-scoped `tenant_admin` cannot manage members | Assumption |
 | Last tenant administrator | A tenant must keep at least one tenant-wide `tenant_admin`. A trigger (`025`) refuses deleting or downgrading the last one, also through removing the member or the auth user. Applies to everyone, including `service_role`. A user may remove their own admin role while another admin exists. A whole tenant can be deleted only after `select set_config('hris.tenant_teardown', 'on', true);` in the same transaction | Your decisions (written, not yet tested) |
-| State | Stored and tested. No function or screen uses the check yet | |
+| State | Checked by every ORG write wrapper (`private.has_permission`) and by the frontend through `public.check_permissions`. No function or screen gives or removes roles yet | |
 
 ---
 
@@ -164,9 +177,12 @@ Built in migrations `012` and `013`. The ORG permission codes are listed in `HRI
 
 - Delete the `app/test-supabase/` folder if not already done.
 - Run the tests for `025` and `026` (see `HRIS_ORG_STATUS.md`, section 6, Next plan).
-- A way to create tenants, companies, members and role assignments does not exist yet (done by hand with `service_role`). The planning document for it is the next platform step. Protecting the last `tenant_admin` (`025`) is written and waiting for its test.
-- No production Supabase project and no Vercel deployment yet. Set them up, with a migration deploy process, before many more migrations pile up.
-- Sections 5.2, 5.4 and 5.7 (State) still say that frontend writes are not built and roles are not enforced. Migrations `014` to `022` changed that. Update them together with the Members, roles and setup planning.
+- Confirm the proposed module codes `FND`, `PLT`, `REC`, `PRF`, `TRN` and `RPT` (`HRIS_MODULE_REGISTER.md`). `PLT` also answers the pending question "choose the module code for Members, roles and setup" in `HRIS_ORG_STATUS.md`.
+- Decide the read rule ("any tenant member sees everything", `HRIS_ORG_STATUS.md`, section 3, assumptions) before the `EMP` module stores personal details or salary.
+- A way to create tenants, companies, members and role assignments does not exist yet (done by hand with `service_role`). Its planning document is the next `PLT` step.
+- No production Supabase project, no Vercel deployment and no Cloudflare R2 bucket yet. Set them up, with a migration deploy process, before many more migrations pile up.
+- Review the Proposed items in `HRIS_BUILD_STANDARDS.md` and confirm or change them.
+- Verify the Cambodia assumptions (`HRIS_CONTEXT.md`) before the owning module's Phase P1 closes.
 
 Module-specific open items are in each module's status document.
 
@@ -174,8 +190,20 @@ Module-specific open items are in each module's status document.
 
 ## 8. How to resume
 
-1. Open a new chat in the same Project and attach this file, the status document of the module you are working on (for example `HRIS_ORG_STATUS.md`), and `package.json`.
-2. For frontend work, also attach that module's frontend reference and the file lists of `app/` and `lib/supabase/`.
-3. For database work, also attach only the migrations named in the module's source map for that topic. If a guard function is involved, use its latest version.
-4. Name the stage as `<MODULE> Stage N` (for example "ORG Stage 8") or "migration NNN". Paste any error text exactly.
-5. If a file is missing, say so and Claude will ask whether to generate it.
+1. Open a new chat in the same Project. Name the Stage as `<MODULE> Stage N` (for example "ORG Stage 9k") or "migration NNN". Paste any error text exactly.
+2. Attach files by task:
+
+| Task | Attach |
+|---|---|
+| Any new chat | This file and the module's Status. `package.json` for code work |
+| Planned tasks, progress, what is next | The module's Status (already in the row above) |
+| Requirements, design, assumptions, open questions | + the module's Blueprint (for ORG, its Status holds scope and decisions) |
+| Which module comes next, dependencies, module state | + `HRIS_MODULE_REGISTER.md` |
+| Cambodia rules, company policy, anything to verify | + `HRIS_CONTEXT.md` |
+| Database work | + Blueprint section 4, and only the migrations named in the module's source map for that topic. If a guard function is involved, use its latest version |
+| Frontend work | + the module's frontend reference, the file lists of `app/` and `lib/supabase/`, and the **latest** version of each file to change |
+| Work that touches another module | That module's frontend reference only |
+| Starting a new module | `HRIS_BUILD_STANDARDS.md`, `HRIS_MODULE_TEMPLATES.md`, `HRIS_MODULE_REGISTER.md` and `HRIS_CONTEXT.md` |
+
+3. If a file is missing, say so and Claude will ask whether to generate it.
+4. Claude's session rules are in `HRIS_BUILD_STANDARDS.md`, section 9.

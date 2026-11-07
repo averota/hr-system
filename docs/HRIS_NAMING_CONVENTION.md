@@ -1,8 +1,8 @@
 # HRIS Naming Convention
 
-Last updated: 2026-11-06
+Last updated: 2026-11-07
 Purpose: One place that says how project documents, modules, stages, migrations, tests and database objects are named, so a name alone tells you what a file or object is and which module it belongs to.
-Read together with: `HRIS_PROJECT_OVERVIEW.md`
+Read together with: `HRIS_PROJECT_OVERVIEW.md`, `HRIS_BUILD_STANDARDS.md`
 
 Status of this convention:
 - Sections 1 to 4 are in use today (documents and modules are new, the rest was observed in migrations `001` to `013`).
@@ -15,8 +15,9 @@ Status of this convention:
 | Item | Rule |
 |---|---|
 | Module | One area of the HRIS built in its own set of stages (for example Organization structure) |
-| Module code | Short uppercase code, listed in the module register of `HRIS_PROJECT_OVERVIEW.md`. Today: `ORG` |
-| Stage | A small step inside one module, numbered from 0 (`ORG Stage 6c`). Stages restart at 0 for every module |
+| Module code | Short uppercase code, listed in the module register of `HRIS_PROJECT_OVERVIEW.md`. Today: `ORG`. The code is permanent. Build order is kept in the register, not in the code (no numbers like `M03`) |
+| Stage | One vertical slice inside one module: one thing a user can do, built database to UI and tested (see `HRIS_BUILD_STANDARDS.md` section 2). Numbered from 0 (`ORG Stage 6c`). Stages restart at 0 for every module. Stage 0 has no feature |
+| Phase | A lifecycle step of a module, `P1` to `P8` (requirements to completion, see `HRIS_BUILD_STANDARDS.md` section 1). Never called a stage |
 | Talking about work | Always `<MODULE> Stage N` or "migration NNN" (for example "ORG Stage 6c" or "migration 009"). Never a bare "stage 5" |
 
 Migration headers written before modules existed say "roadmap Stage X". That always means the ORG module. Applied migrations are not edited.
@@ -31,6 +32,7 @@ Two kinds of document.
 |---|---|---|
 | Project document (shared by all modules) | `HRIS_<TOPIC>.md` | `HRIS_PROJECT_OVERVIEW.md` |
 | Module document | `HRIS_<MODULE>_<TOPIC>.md` | `HRIS_ORG_STATUS.md` |
+| Template (not a project document) | `HRIS_MODULE_TEMPLATES.md` | |
 
 | Item | Rule |
 |---|---|
@@ -44,10 +46,12 @@ Two kinds of document.
 |---|---|---|
 | `HRIS_PROJECT_OVERVIEW.md` | Modules and their state, shared technical setup and conventions, how to resume | A module is added or changes state, or a shared rule changes |
 | `HRIS_NAMING_CONVENTION.md` | How things are named | A new naming pattern is introduced |
-| `HRIS_<MODULE>_STATUS.md` | Where that module is: scope, requirements, decisions, what has been created, stages, open items | Every time a stage of that module passes |
+| `HRIS_BUILD_STANDARDS.md` | How modules are built: phases, stages, definition of done, shared patterns, session rules | A working rule changes |
+| `HRIS_<MODULE>_BLUEPRINT.md` | What the module must do and how it is designed (phases P1 to P3), Stage plan, decisions | A decision is made. Rarely otherwise |
+| `HRIS_<MODULE>_STATUS.md` | Where that module is in the build: stage log, files and migrations, next plan, pending items, UAT, known limitations. (ORG's Status document also still holds its scope and decisions) | Every time a stage of that module passes |
 | `HRIS_<MODULE>_FRONTEND_REFERENCE.md` | What the frontend can read and write for that module, rules enforced, error messages, known gaps, where to look in code. Created when the module's database is ready for a frontend | Any change to a `public` object, guard, trigger or write function of that module |
 
-Add another document only when a topic needs more than a section in an existing one.
+Add another document only when a topic needs more than a section in an existing one. Decision, question and UAT IDs are `<MODULE>-D01`, `<MODULE>-Q01`, `<MODULE>-UAT01`.
 
 ### Where a fact belongs
 - Used by every module (setup, tenancy, access model, shared conventions): `HRIS_PROJECT_OVERVIEW.md`.
