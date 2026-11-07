@@ -1,7 +1,7 @@
 # HRIS ORG Status
 
 Last updated: 2026-11-07
-Purpose: The plan and progress of the Organization structure (ORG) module: Stages planned and passed, tasks, files created, tests, issues, next steps and known limitations. What the module is, and why, is in the Blueprint. Split out of the former `HRIS_ORG_STATUS.md` (dated 2026-11-06).
+Purpose: The plan and progress of the Organization structure (ORG) module: Stages planned and passed, tasks, files created, tests, issues, next steps and known limitations. What the module is, and why, is in the Blueprint.
 Read together with: `HRIS_PROJECT_OVERVIEW.md`, `HRIS_ORG_BLUEPRINT.md`, `HRIS_ORG_FRONTEND_REFERENCE.md`
 
 Module code: `ORG`. Stages are written "ORG Stage N". Migration headers that say "roadmap Stage X" mean ORG Stage X.
@@ -17,26 +17,26 @@ Module code: `ORG`. Stages are written "ORG Stage N". Migration headers that say
 | Phase now | P4-P5 (Stage 9k passed, Stage 9l next) |
 | Blueprint state | Written after the build began (not gated). Awaiting your approval. See Blueprint section 5. Not yet updated for 9k (`ORG-T019`) |
 | Current Stage | None in progress |
-| Last Stage passed | ORG Stage 9k: history reads (`028`, `tsc` and browser checks passed on 2026-11-07). Before it, ORG Stage 9j (name history reverted, `027`) and ORG Stage 9i (`023`, `024`) |
+| Last Stage passed | ORG Stage 9k: history reads (`028`, `tsc` and browser checks passed on 2026-11-07) |
 | Next | ORG Stage 9l (Re-create button on history rows, frontend only). First agree the behaviour and send the files (`ORG-T011`, `ORG-T012`) |
 | Blocking | 9l needs your answers and the files in section 7 |
 
 * The database (`000` to `028`) is applied to the dev project. The test result of `025` has not been reported yet. `028` has no SQL test file (checked in the browser).
 * **Permissions are enforced on writes** through the wrappers. Reads are open to every tenant member, history included. The private write functions stay `service_role` only.
 * The frontend can read and manage everything in the ORG scope: levels (9h), units on both trees (9f), jobs and Department listings (9g), allocations and headcount (9d, 9e). Closed records show on six tabs (9i). As of date views exist on the Org tree, Position tree, Department listings and Headcount tabs, and a Moves (reorg) view on both trees (9k). Buttons are hidden by `check_permissions` where the user lacks the permission.
-* Skipped for now: ORG Stage 2b (Khmer level names).
+* Gap fixes planned after 9l (section 3): 1000-row warning (`ORG-T020`), Phnom Penh date defaults (`ORG-T021`), Khmer level names (`ORG-T022`, Stage 2b).
 
 ---
 
 ## 2. Stage plan
 
-*Stages 0 to 9j were named by layer, before the vertical-slice rule. They are kept as built. Blueprint references use the IDs of `HRIS_ORG_BLUEPRINT.md`. "Depends on" follows the build order.*
+*Blueprint references use the IDs of `HRIS_ORG_BLUEPRINT.md`. "Depends on" follows the build order.*
 
 | Stage | Capability | Blueprint items covered | Migrations | Frontend | Depends on | State |
 |---|---|---|---|---|---|---|
 | 0-1 | Schemas and tenancy | Overview 5.2 | `000`, `001` | none | none | Passed |
 | 2 | A company sets its level rules | 4.2 (`hierarchy_level`, `company_level_rule`), `ORG-D01`, `ORG-D16` | `002` | none | 0-1 | Passed |
-| 2b | Khmer level names | `ORG-D05`, `ORG-Q05` | A small seed migration | none | 2 | **Dropped (skipped for now)** |
+| 2b | Khmer level names | `ORG-D05`, `ORG-Q05` | A small seed migration (`ORG-T022`) | none | 2 | **Planned (needs the names)** |
 | 3 | Org tree | `ORG-D14`, `ORG-D18`, `ORG-D19`, `ORG-D20` | `003` | none | 2 | Passed |
 | 4 | Position tree, jobs, eligibility | `ORG-D02`, `ORG-D03`, `ORG-D14` | `004`, `005` | none | 3 | Passed |
 | 5 | Allocation and headcount | `ORG-D21`, `ORG-D23`, `ORG-D24` | `006` | none | 3, 4 | Passed |
@@ -48,21 +48,21 @@ Module code: `ORG`. Stages are written "ORG Stage N". Migration headers that say
 | 9a | Roles and permissions design | `ORG-D06`, `ORG-D07`, `ORG-D26` | none (design) | none | 7 | Passed (agreed) |
 | 9b-1 / 9b-2 | Role tables, permission check | 4.4 | `012`, `013` | none | 9a | Passed |
 | 9c | Write wrappers: allocations, org units, position units, jobs, Department listings, level rules | `ORG-D08`, 4.4 | `014` to `020` | none | 9b | Passed |
-| 9d | Allocation save and headcount grid actions (Save calls `create_allocation` with start date and duplicate check. Change headcount and close, each with an effective date. Clear message on `42501`. Date fields default to today's Phnom Penh date) | 1.2 (workflow 5) | none | Frontend only | 9c | Passed |
-| 9e | Own permissions and role-aware buttons (`public.check_permissions`, permission helper, Save disabled and Change/Close hidden when not allowed) | 4.4 | `021` | `modules/org/permissions.ts` and screens | 9c | Passed (database and frontend) |
+| 9d | Allocation save and headcount grid actions (create, change headcount, close, each with an effective date; date fields default to today's Phnom Penh date) | 1.2 (workflow 5) | none | Frontend only | 9c | Passed |
+| 9e | Own permissions and role-aware buttons (`public.check_permissions`, permission helper, buttons hidden or disabled where not allowed) | 4.4 | `021` | `modules/org/permissions.ts` and screens | 9c | Passed |
 | 9f | Org tree and position tree management: rename functions and wrappers, then add, rename, move and close units on both trees | 3.2, 4.3 | `022` | `OrgTreeExplorer` (`manage`), `UnitActionDialog`, `unitTree.ts` | 9e | Passed |
 | 9g | Job catalog and Department listings screens | 1.2 (workflows 3, 4) | none | Jobs tab, Department listings tab | 9e | Passed |
 | 9h | Hierarchy configuration screen (enable a level under a parent, disable one rule) | 1.2 (workflow 1) | none | `HierarchyConfig`, `LevelRuleDialog` | 9e | Passed (disabling and enabling confirmed in the browser, guard message seen) |
-| 9i | History view of closed rules, units, jobs, listings and allocations | `ORG-D09`, `ORG-D17` | `023`, `024` | Current / Closed toggle on six tabs, `ClosedRules`, `ClosedUnits`, `ClosedAllocations`, `ClosedJobs`, `ClosedListings`, `HistoryToggle` | 9c | Passed |
-| 9j | Name history, then reverted. A corrected name must show everywhere regardless of date, so the name history table and triggers were removed (`027`). The trimmed names in the create functions (`026`, part B) stay | `ORG-D11` (reversed) | `026`, `027` | none | 9i | **Passed (reverted).** `026_trimmed_names_test.sql` passed |
-| 9k | History reads: reorg history views and as-of date functions (`028`), with as-of views on both trees, Headcount and Department listings, and a Moves (reorg) view | `ORG-D12`, `ORG-D13`, `ORG-Q09` | `028` | `queriesHistory.ts`, `AsOf*`, `UnitMoves`, `HistoryToggle` | 9i | **Passed** |
+| 9i | History view of closed rules, units, jobs, listings and allocations (Current / Closed toggle on six tabs) | `ORG-D09`, `ORG-D17` | `023`, `024` | `Closed*` lists, `HistoryToggle` | 9c | Passed |
+| 9j | Name history, then reverted (a corrected name shows everywhere regardless of date). Trimmed names in the create functions stay | `ORG-D11` (reversed) | `026`, `027` | none | 9i | **Passed (reverted)** |
+| 9k | History reads: reorg history views and as-of functions (`028`), as-of views on both trees, Headcount and Department listings, Moves (reorg) view | `ORG-D12`, `ORG-D13`, `ORG-Q09` | `028` | `queriesHistory.ts`, `AsOf*`, `UnitMoves`, `HistoryToggle` | 9i | **Passed** |
 | 9l | Re-create button on history rows: opens the existing add form pre-filled from the closed record. Frontend only, no migration. One step per record type (units, jobs, listings, rules, allocations) | `ORG-D09`, 3.2 (journey 4) | none | `Closed*` lists, the add dialogs, `OrgConfigView` | 9i, 9k | **Planned** |
 | Platform | Last tenant admin guard (belongs to the members, roles and setup work) | `ORG-D10` | `025` | none | `012` | Applied to dev. Test result not reported yet |
 
 **Not counted in the stages**
 
-* **Members, roles and setup** (create tenant, company, membership, give and remove roles): a platform stage, handled as its own module (`PLT`). Planning document first (section 6, step 5). The last tenant admin guard (`025`) is already written.
-* **Optional:** Khmer level names (2b), paging the headcount grid and the history lists.
+* **Members, roles and setup** (create tenant, company, membership, give and remove roles): a platform stage, handled as its own module (`PLT`). Planning document first (section 6, step 6). The last tenant admin guard (`025`) is already written.
+* **Optional:** paging the headcount grid and the history lists (after the 1000-row warning, `ORG-T020`).
 * Employee hooks (hiring, transfers, promotions) belong to a later module (`LCY`), not ORG.
 
 ---
@@ -73,9 +73,7 @@ Module code: `ORG`. Stages are written "ORG Stage N". Migration headers that say
 
 | Task | Stage | Task | Type | Blueprint ref | Who | State | Done on | Note |
 |---|---|---|---|---|---|---|---|---|
-| `ORG-T001` | 9j / Platform | Apply `025`, `026` and `027`: `npx supabase db push --remote` | Migration | `ORG-D10`, `ORG-D11` | You | Done | 2026-11-07 | |
-| `ORG-T002` | 9j / Platform | Run the SQL tests in the SQL Editor (dev project). Each must return "Success. No rows returned". `026_trimmed_names_test.sql` passed. `025_last_tenant_admin_guard_test.sql` is still to do | SQL test | `ORG-D10`, `ORG-D11` | You | Part done | 2026-11-07 | Only the `025` test is left. Paste any `FAIL:` message exactly |
-| `ORG-T003` to `ORG-T007`, `ORG-T010` to `ORG-T010c` | 9k | Files received, date rule confirmed (`ORG-D12`), `028` written and applied, frontend steps 9k-1 to 9k-3 built and checked in the browser (`ORG-T005` was dropped with the name history) | Mixed | `ORG-D12`, `ORG-D13`, `ORG-Q09` | You / Claude | Done | 2026-11-07 | `tsc` and browser checks passed |
+| `ORG-T002` | Platform | Run `025_last_tenant_admin_guard_test.sql` in the SQL Editor (dev project). It must return "Success. No rows returned" | SQL test | `ORG-D10` | You | To do | | Paste any `FAIL:` message exactly |
 | `ORG-T008` | 9k | `028_history_reads_test.sql` (SQL test) | SQL test | 4.8 | Claude | To do (optional) | | Needs `026_trimmed_names_test.sql` as a template (or `001_tenancy.sql`). The four as-of functions and the two link views were checked in the browser only |
 | `ORG-T009` | 9k | Update `HRIS_ORG_FRONTEND_REFERENCE.md` for the `028` objects and the 9k frontend files | Document | | Claude | To do | | |
 | `ORG-T019` | 9k | Update the Blueprint: `ORG-Q09` settled, decision `ORG-D12` confirmed, `ORG-D11` reversed (`ORG-I05`), section 4.6 (public contract and `028`), `ORG-UAT10` dropped | Document | `ORG-Q09`, `ORG-D11`, `ORG-D12`, 4.6 | Claude | To do | | Claude has the Blueprint from earlier in this chat |
@@ -87,35 +85,15 @@ Module code: `ORG`. Stages are written "ORG Stage N". Migration headers that say
 | `ORG-T016` | 9l-4 | Re-create on closed level rules: opens the Enable level dialog pre-filled | Frontend | 3.2 | Claude | To do | | |
 | `ORG-T017` | 9l-5 | Re-create on closed allocations: pre-fills the Allocation form | Frontend | 3.2 | Claude | To do | | Needs a decision on how the Allocation form tab receives the values |
 | `ORG-T018` | 9l | Update the Blueprint (journey 4 in 3.2), `HRIS_ORG_FRONTEND_REFERENCE.md` (section 10), section 11 below | Document | 3.2 | Claude | To do | | When 9l passes |
+| `ORG-T020` | Gap | Show a visible warning when a list or total reaches 1000 rows (Supabase limit): Headcount grid, six Closed lists, as-of views, Moves, Jobs, Department listings. One shared warning, used by every list | Frontend | `ORG-Q11` | Claude | To do | | Needs `queries.ts`, `queriesHistory.ts` and the list components (section 7) |
+| `ORG-T021` | Gap | Server-date defaults use the Phnom Penh date (UTC+7) instead of UTC in `create_org_unit`, `create_pos_unit`, `create_job_position`, `enable_level_rule` and the rename functions. New migration | Migration | `ORG-Q10` (settled) | Claude | To do | | Needs the latest function files (section 7). Also check the other functions for the same default |
+| `ORG-T022` | 2b | Seed the Khmer names of the 7 levels (small seed migration on `hierarchy_level`) | Migration | `ORG-D05`, `ORG-Q05` | You / Claude | Blocked | | Needs the 7 Khmer names from you and `002_hierarchy_levels.sql` |
 
 ---
 
 ## 4. Stage log
 
-*Dates were not recorded in the old Status. Test results are as the old document stated them.*
-
-| Stage | Capability | Migration(s) | SQL test | Browser check | Result | Date | Notes |
-|---|---|---|---|---|---|---|---|
-| 0-1 | Schemas, tenancy | `000`, `001` | Passed | n/a | Passed | not recorded | |
-| 2 | Level catalog and company rules | `002` | Passed | n/a | Passed | not recorded | |
-| 3 | Org tree | `003` | Passed | n/a | Passed | not recorded | |
-| 4 | Position tree, jobs, eligibility | `004`, `005` | Passed | n/a | Passed | not recorded | |
-| 5 | Allocation and headcount | `006` | Passed (file name not recorded) | n/a | Passed | not recorded | |
-| 6a / 6b / 6c | Level disable guard, close functions, reorg functions | `007`, `008`, `009` | Passed (`007`, `008` file names not recorded. `009` in `009_010_reorg_read_layer_test.sql`) | n/a | Passed | not recorded | |
-| 7 / 7b | Read layer, catalog read views | `010`, `011` | Passed (`011` file name not recorded) | n/a | Passed | not recorded | |
-| 2b | Khmer level names | none | n/a | n/a | Skipped for now | not recorded | Add later as a small seed migration when names are supplied |
-| 8a-8d | Read-only frontend | none | n/a | Passed | Passed | not recorded | |
-| 9a | Roles and permissions design | none | n/a | n/a | Agreed | not recorded | Decisions `ORG-D06`, `ORG-D07`, `ORG-D26` |
-| 9b-1 / 9b-2 | Role tables, permission check | `012`, `013` | Passed | n/a | Passed | not recorded | |
-| 9c | Write wrappers | `014` to `020` | Passed (`014` to `020` confirmed) | n/a | Passed | not recorded | |
-| 9d | Allocation save, headcount grid actions | none | n/a | Passed | Passed | not recorded | |
-| 9e | Own permissions, role-aware buttons | `021` | Passed | Passed | Passed | not recorded | Closes gap G8 on the database side |
-| 9f | Org and position tree management | `022` | Passed | Passed | Passed | not recorded | |
-| 9g | Job catalog, Department listings | none | n/a | Passed | Passed | not recorded | |
-| 9h | Hierarchy configuration screen | none | n/a | Passed | Passed | not recorded | Disabling confirmed (guard message seen, then Section "Under Office" and Office disabled). Enabling a level also confirmed |
-| 9i | History view | `023`, `024` | No SQL test file | Passed | Passed | not recorded | Checked in the browser |
-| 9j | Name history, reverted | `026`, `027` | `026_trimmed_names_test.sql` passed | n/a | Passed | 2026-11-07 | Name history table and triggers removed by `027`. Trimmed names kept. Closes `ORG-I01`, `ORG-I02` |
-| 9k | History reads (as-of views, Moves) | `028` | No SQL test file (`ORG-T008`) | Passed (`tsc` and browser) | Passed | 2026-11-07 | Done in four passes: `028`, then 9k-1, then 9k-2 and 9k-3 together |
+Stages 0 to 9k all passed (SQL tests and browser checks, file by file in section 5). Dates were not recorded before 2026-11-07. Notes still needed: 2b is planned (`ORG-T022`); 9j name history was added and reverted (`027`); `028` was checked in the browser only (`ORG-T008`).
 
 ---
 
@@ -153,11 +131,11 @@ Migrations `000` to `028` are applied to the dev project. The test result of `02
 | `023` (file name not recorded) | 9i | Read-only history views `company_level_rules_closed`, `org_units_closed`, `pos_units_closed` (ORG Stage 9i, part 1) | browser test (ORG Stage 9i) |
 | `024_history_views_jobs_listings_allocations.sql` | 9i | Read-only history views `job_positions_closed`, `org_unit_departments_closed`, `position_allocations_closed` (ORG Stage 9i, part 2) | browser test (ORG Stage 9i) |
 | `025_last_tenant_admin_guard.sql` (platform) | Platform (written for ORG) | Trigger on `core.member_role_scope` that refuses deleting or downgrading the last tenant-wide `tenant_admin`, also through removing the member or the auth user. **Applied to dev. Test result not reported yet** | `025_last_tenant_admin_guard_test.sql` |
-| `026_name_history.sql` (ORG Stage 9j) | 9j | Part A (`core.name_history` and its triggers) was **removed by `027`**. Part B stays: `private.create_org_unit` and `private.create_pos_unit` replaced (names trimmed, an empty Khmer name stored as null, blank English name refused) | `026_trimmed_names_test.sql` (tests part B only) |
-| `027_revert_name_history.sql` | 9j | Drops the three name-history triggers, `private.name_history_sync()` and `core.name_history`. Nothing else changes | `026_trimmed_names_test.sql` |
+| `026_name_history.sql` | 9j | `private.create_org_unit` and `private.create_pos_unit` replaced (names trimmed, an empty Khmer name stored as null, blank English name refused). The name history part was removed by `027` | `026_trimmed_names_test.sql` |
+| `027_revert_name_history.sql` | 9j | Drops the name history triggers, function and table. Nothing else changes | `026_trimmed_names_test.sql` |
 | `028_history_reads.sql` | 9k | Views `org_unit_parent_links_closed`, `pos_unit_parent_links_closed` (closed parent links, `unit_valid_to` empty = the unit is still open, so the link ended by a reorg). Functions `org_units_as_of`, `pos_units_as_of`, `position_allocations_as_of`, `org_unit_departments_as_of` (each `(company, date)`, date required). Date rule: `valid_to` is the last valid day, inclusive. Where two rows touch on one date the later start wins, then the higher id. Nothing in `core` changes | browser test (ORG Stage 9k). No SQL test file (`ORG-T008`) |
 
-**How tests work.** Plain SQL files. Paste one into Supabase Dashboard -> SQL Editor (dev project only). Each rolls back at the end. "Success. No rows returned" means pass. An error starting with `FAIL:` means a check failed. Tests `009_010`, `012` and `013` create temporary users and switch role to `authenticated` and `anon`. Tests `012` and `013` need `seed_dev_org_sample.sql`. `016_020_wrappers_test.sql` covers the wrappers and private functions of `016` to `020`. `021_permission_check_test.sql` uses temporary users and the sample data like `013`. `022_rename_unit_test.sql` needs the sample data and a `tenant_admin` user (set `v_admin_email` at the top). The history views (`023`, `024`) and the `028` objects were checked in the browser, there is no SQL test file for them. `026_trimmed_names_test.sql` creates its own tenant and company and needs no sample data. The old `026_name_history_test.sql` was removed.
+**How tests work.** Plain SQL files. Paste one into Supabase Dashboard -> SQL Editor (dev project only). Each rolls back at the end. "Success. No rows returned" means pass. An error starting with `FAIL:` means a check failed. Tests `009_010`, `012` and `013` create temporary users and switch role to `authenticated` and `anon`. Tests `012` and `013` need `seed_dev_org_sample.sql`. `016_020_wrappers_test.sql` covers the wrappers and private functions of `016` to `020`. `021_permission_check_test.sql` uses temporary users and the sample data like `013`. `022_rename_unit_test.sql` needs the sample data and a `tenant_admin` user (set `v_admin_email` at the top). The history views (`023`, `024`) and the `028` objects were checked in the browser, there is no SQL test file for them. `026_trimmed_names_test.sql` creates its own tenant and company and needs no sample data.
 
 ### 5.2 Frontend files (ORG Stages 8, 9d, 9e, 9f, 9g, 9h, 9i and 9k)
 
@@ -230,18 +208,17 @@ Do the steps in order. Each one is validated before the next starts.
 1. **Test `025`** (task `ORG-T002`). `026` and `027` are applied and passed. Done when the `025` test returns "Success. No rows returned". Can be done at any time.
 2. **Close ORG Stage 9k on paper** (tasks `ORG-T009`, `ORG-T019`). Update `HRIS_ORG_FRONTEND_REFERENCE.md` for `028` and the 9k frontend files, and the Blueprint (`ORG-Q09` settled, `ORG-D12` confirmed, `ORG-D11` reversed, section 4.6, `ORG-UAT10` dropped, `ORG-I05` closed). Optional: the `028` SQL test (`ORG-T008`). Done when both documents are updated.
 3. **ORG Stage 9l: Re-create button on history rows** (tasks `ORG-T011` to `ORG-T018`). First agree the behaviour (`ORG-T011`) and send the files (section 7). Then one record type at a time: units, jobs, listings, rules, allocations. Frontend only, no migration. Done when each type is checked in the browser.
-4. **Settle the assumptions** (`ORG-Q01` to `ORG-Q08` in the Blueprint). Go through them one by one. Each becomes a decision or changes. Start with "any tenant member sees everything", since the Employee module depends on it. Done when each item is marked Settled.
-5. **Members, roles and setup: planning document.** Written before any code, in the same style as the Blueprint. Choose a module code (`PLT` is proposed, waiting for your confirmation) and create `HRIS_<CODE>_BLUEPRINT.md` and `HRIS_<CODE>_STATUS.md` from the templates. Cover: scope; setup functions (create tenant, company, membership); role management functions (give and remove a role, change a role); who may see all assignments of a tenant; what `members.manage` allows; how reads are governed (decision on `org.read`); screens; stages. The last admin guard (`025`) is already part of it. Done when the document is agreed.
-6. **Build Members, roles and setup in small stages.** Database functions and tests first, then the members screen.
+4. **Gap fixes** (tasks `ORG-T020` to `ORG-T022`). Add the 1000-row warning, move the server-date defaults to the Phnom Penh date (`ORG-Q10` settled: UTC+7), seed the Khmer level names once supplied. One task at a time. Done when each is checked in the browser or with a SQL test.
+5. **Settle the assumptions** (`ORG-Q01` to `ORG-Q08` in the Blueprint). Go through them one by one. Each becomes a decision or changes. Start with "any tenant member sees everything", since the Employee module depends on it. Done when each item is marked Settled.
+6. **Members, roles and setup: planning document.** Written before any code, in the same style as the Blueprint. Choose a module code (`PLT` is proposed, waiting for your confirmation) and create `HRIS_<CODE>_BLUEPRINT.md` and `HRIS_<CODE>_STATUS.md` from the templates. Cover: scope; setup functions (create tenant, company, membership); role management functions (give and remove a role, change a role); who may see all assignments of a tenant; what `members.manage` allows; how reads are governed (decision on `org.read`); screens; stages. The last admin guard (`025`) is already part of it. Done when the document is agreed.
+7. **Build Members, roles and setup in small stages.** Database functions and tests first, then the members screen.
 
 **Later or optional (not scheduled)**
 
 * **Production setup:** only the dev Supabase project exists and nothing is deployed to Vercel. Create a production Supabase project and agree a migration deploy process (Supabase CLI) before many more migrations pile up.
-* **1000-row limit:** show a visible warning when a list or total hits 1000 rows, before real paging is built (gap G9, `ORG-Q11`).
-* **Dates without a date parameter:** decide whether to add date parameters or accept the UTC date (`ORG-Q10`).
 * **Reads and the Employee module:** decide the read rule before employee data is stored (`ORG-Q01`).
 * **Housekeeping:** record the file name of `023` and the test file names for `006`, `007`, `008` and `011`.
-* **Optional from before:** Khmer level names (2b), paging.
+* **Optional from before:** real paging (after the warning).
 * **Proposed UAT scenarios** (Blueprint 1.6): confirm or change before P6.
 
 ---
@@ -250,12 +227,14 @@ Do the steps in order. Each one is validated before the next starts.
 
 * Run the test for `025` and report the result (paste any `FAIL:` message exactly).
 * Answer the Re-create questions in the chat (`ORG-T011`).
-* For ORG Stage 9l (`ORG-T012`), send: `ClosedUnits.tsx`, `ClosedJobs.tsx`, `ClosedListings.tsx`, `ClosedRules.tsx`, `ClosedAllocations.tsx`, `UnitActionDialog.tsx`, `JobDialog.tsx`, `ListingDialog.tsx`, `LevelRuleDialog.tsx`, `AllocationForm.tsx`, `Modal.tsx`, `modules/org/unitTree.ts`, `modules/org/permissions.ts`, `modules/org/labels.ts`, `OrgTreeExplorer.tsx`, `JobCatalog.tsx`, `DepartmentListings.tsx`, `HierarchyConfig.tsx`. Not all are needed at once: units first (`ClosedUnits`, `UnitActionDialog`, `unitTree.ts`, `OrgTreeExplorer`, `permissions.ts`, `labels.ts`), the rest when each record type comes up.
+* For ORG Stage 9l (`ORG-T012`), send: `ClosedUnits.tsx`, `ClosedJobs.tsx`, `ClosedListings.tsx`, `ClosedRules.tsx`, `ClosedAllocations.tsx`, `UnitActionDialog.tsx`, `JobDialog.tsx`, `ListingDialog.tsx`, `LevelRuleDialog.tsx`, `AllocationForm.tsx`, `Modal.tsx`, `modules/org/unitTree.ts`, `modules/org/permissions.ts`, `modules/org/labels.ts`, `modules/org/types.ts`, `modules/org/queries.ts`, `OrgTreeExplorer.tsx`, `OrgConfigView.tsx`, `JobCatalog.tsx`, `DepartmentListings.tsx`, `HierarchyConfig.tsx`. Not all are needed at once: units first (`ClosedUnits`, `UnitActionDialog`, `unitTree.ts`, `OrgTreeExplorer`, `OrgConfigView`, `permissions.ts`, `labels.ts`, `types.ts`, `queries.ts`), the rest when each record type comes up.
+* For `ORG-T020`: `queriesHistory.ts`, `HeadcountGrid.tsx` and the list components (most are already in the 9l list).
+* For `ORG-T021`: the files of `018`, `020`, `022` and `026` (the latest versions of the functions, section 5.3).
 * Optional: send `026_trimmed_names_test.sql` (or `001_tenancy.sql`) if you want the `028` SQL test (`ORG-T008`).
 * Confirm the file names of migration `023` and its test, if you want them recorded.
-* Settle the assumptions in the Blueprint, section 2 (Next plan, step 4).
-* Choose the module code for Members, roles and setup (Next plan, step 5).
-* Supply the Khmer names for the 7 levels when ready.
+* Settle the assumptions in the Blueprint, section 2 (Next plan, step 5).
+* Choose the module code for Members, roles and setup (Next plan, step 6).
+* Supply the Khmer names for the 7 levels when ready (`ORG-T022`).
 * Test file names for `006`, `007`, `008` and `011` if you want them recorded.
 * Review `HRIS_ORG_BLUEPRINT.md`: approve it, or correct it (especially the "Not recorded" scenario answers, `ORG-Q14`, `ORG-Q15`, and the Proposed UAT scenarios).
 
@@ -284,10 +263,7 @@ Do the steps in order. Each one is validated before the next starts.
 
 | ID | Stage | Problem | Found by | State | Fix or decision |
 |---|---|---|---|---|---|
-| `ORG-I01` | 9j | The old stage table said "026 database (passed)". The old sections 4 and 6 and the Overview say `026` is written and not yet run | Document review during the split | Closed | `026` was run. Part A was reverted by `027` on 2026-11-07. Document corrected |
-| `ORG-I02` | 9j | The `026` test calls `private.enable_level_rule(company, level, parent level)`, written from documentation because `020` was not reviewed | Old Status | Closed | The test used `private.enable_level_rule` and passed (`026_trimmed_names_test.sql`) |
 | `ORG-I03` | Housekeeping | File name of `023` and test file names of `006`, `007`, `008`, `011` not recorded | Old Status | Open | Supply the names or accept |
-| `ORG-I04` | Housekeeping | The old document contained stray escape characters before underscores and asterisks (a conversion artefact) | Document review | Fixed in this split | None |
 | `ORG-I05` | 9j | The Blueprint decision `ORG-D11` and section 4.6 were written for name history (names as they were). The decision was reversed: a corrected name shows everywhere regardless of date | Your decision | Open | Update the Blueprint (`ORG-T019`) |
 
 ---
@@ -310,9 +286,9 @@ Do the steps in order. Each one is validated before the next starts.
 | Reads are open to every tenant member, history included | Cannot be used for sensitive data (`EMP`) | Decide the read rule (`ORG-Q01`) |
 | No function creates a tenant, company or membership (done by hand with `service_role`). A member added later has no role until one is given | Setup is manual | `PLT` |
 | No function or screen gives or removes roles. A user sees only their own assignments. Who may see all assignments of a tenant is undecided | Role management is manual | `PLT` |
-| Headcount grid, history lists and as-of reads are not paged. Supabase returns at most 1000 rows per request, so a list or total is too low beyond that | Wrong totals on large data | Warning, then real paging (`ORG-Q11`) |
-| Server-date defaults use UTC. Between 00:00 and 07:00 in Phnom Penh a record is dated one day early (`create_org_unit`, `create_pos_unit`, `create_job_position`, `enable_level_rule` and the rename functions) | One-day offset | Decide (`ORG-Q10`) |
-| Khmer level names are empty | Khmer interface shows the level code or English | Stage 2b when names are supplied |
+| Headcount grid, history lists and as-of reads are not paged. Supabase returns at most 1000 rows per request, so a list or total is too low beyond that | Wrong totals on large data | Warning (`ORG-T020`), then real paging (`ORG-Q11`) |
+| Server-date defaults use UTC. Between 00:00 and 07:00 in Phnom Penh a record is dated one day early (`create_org_unit`, `create_pos_unit`, `create_job_position`, `enable_level_rule` and the rename functions) | One-day offset | Phnom Penh date, UTC+7 (`ORG-T021`) |
+| Khmer level names are empty | Khmer interface shows the level code or English | Seed migration when names are supplied (`ORG-T022`) |
 | Closed records cannot be re-opened | To bring something back, create it again. A re-created unit gets a new ID | Re-create button on history rows (ORG Stage 9l, frontend only) |
 | No SQL test file for the history views (`023`, `024`) and for `028` | Checked in the browser only | Add a test if wanted (`ORG-T008`) |
 | Only the dev Supabase project exists | No production environment | See Next plan, later items |
@@ -326,7 +302,6 @@ Do the steps in order. Each one is validated before the next starts.
 * Departments are not created under a Business Unit or the Parent Company. Create a Department on the Position tree tab ("Add top-level unit"), then list it for an org unit on the Department listings tab. Listings sit on org units only (not on the Parent Company) and are not inherited, so each Business Unit, Branch or Division that needs the Department needs its own listing.
 * The current screens show only open records (`valid_to is null`). A closed record is not deleted: it stays in `core` and shows under **Closed (history)** on its tab.
 * A level cannot be disabled while another open rule uses it as parent. The blocker is a **rule**, not a unit, so it never shows on the tree screens. Example: Office could not be disabled because Section still had an open rule "Under Office". Disable the child rules first (for example Section and Group "Under Office"), then the parent level. Closing one rule of a level is allowed while another open rule of that level remains (Section "Under Department" can stay). To find the blocker, check the open rules of the company in `core.company_level_rule` (`valid_to is null`).
-* Closed records are never re-opened. Create them again instead (Blueprint `ORG-D09`).
 * When a database function gains new views or columns, regenerate `database.types.ts` before writing the frontend queries, so the narrowing code matches the real columns.
 * A rename is treated as a correction, not as a history event. ORG keeps no name history (reverted in `027`). If a real rebrand ever has to show the old name in the past, that needs a new decision.
 * As-of reads treat `valid_to` as the last valid day (inclusive). Where two rows touch on one date (reorg, headcount change, re-listing), the row that started later wins, then the higher id (`ORG-D12`).

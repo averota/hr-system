@@ -260,6 +260,9 @@ export function OrgConfigView({
                   tree="org"
                   companyId={selectedCompanyId}
                   locale={locale}
+                  levels={levels}
+                  rules={companyRules}
+                  units={companyOrgUnits}
                 />
               ) : mode === "asof" ? (
                 <AsOfUnits
@@ -299,6 +302,9 @@ export function OrgConfigView({
                   tree="pos"
                   companyId={selectedCompanyId}
                   locale={locale}
+                  levels={levels}
+                  rules={companyRules}
+                  units={companyPosUnits}
                 />
               ) : mode === "asof" ? (
                 <AsOfUnits
@@ -337,6 +343,7 @@ export function OrgConfigView({
                   key={`closed-jobs-${selectedCompanyId}`}
                   companyId={selectedCompanyId}
                   locale={locale}
+                  departments={companyDepartments}
                 />
               ) : (
                 <JobCatalog
@@ -354,6 +361,8 @@ export function OrgConfigView({
                   key={`closed-listings-${selectedCompanyId}`}
                   companyId={selectedCompanyId}
                   locale={locale}
+                  orgUnits={companyOrgUnits}
+                  departments={companyDepartments}
                 />
               ) : mode === "asof" ? (
                 <AsOfListings

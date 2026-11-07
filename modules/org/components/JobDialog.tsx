@@ -23,6 +23,8 @@ interface JobDialogProps {
   defaultDepartmentId: number | null;
   /** Open allocations that use the job (shown when closing). */
   allocationCount: number;
+  /** Re-create: pre-fills the add form from a closed job. Only used with "create". */
+  prefill?: { nameEn: string; nameKm: string | null };
   onCancel: () => void;
   /** Called after a successful save with a message to show the user. */
   onDone: (message: string) => void;
@@ -37,6 +39,7 @@ export function JobDialog({
   job,
   defaultDepartmentId,
   allocationCount,
+  prefill,
   onCancel,
   onDone,
 }: JobDialogProps) {
@@ -44,9 +47,11 @@ export function JobDialog({
     if (defaultDepartmentId !== null) return String(defaultDepartmentId);
     return departments.length === 1 ? String(departments[0].unit_id) : "";
   });
-  const [nameEn, setNameEn] = useState(action === "rename" && job ? job.name_en : "");
+  const [nameEn, setNameEn] = useState(
+    action === "rename" && job ? job.name_en : (prefill?.nameEn ?? "")
+  );
   const [nameKm, setNameKm] = useState(
-    action === "rename" && job ? (job.name_km ?? "") : ""
+    action === "rename" && job ? (job.name_km ?? "") : (prefill?.nameKm ?? "")
   );
   const [date, setDate] = useState(() => todayInPhnomPenh());
   const [isSaving, setIsSaving] = useState(false);
@@ -69,7 +74,7 @@ export function JobDialog({
     try {
       if (action === "create") {
         await createJob(companyId, Number(departmentId), nameEn, nameKm);
-        onDone(`Added job "${nameEn.trim()}".`);
+        onDone(`${prefill ? "Re-created" : "Added"} job "${nameEn.trim()}".`);
       } else if (action === "rename" && job) {
         await renameJob(companyId, job.job_position_id, nameEn, nameKm);
         onDone(`Renamed "${job.name_en}" to "${nameEn.trim()}".`);
@@ -84,12 +89,12 @@ export function JobDialog({
   }
 
   const titles: Record<JobAction, string> = {
-    create: "Add job position",
+    create: prefill ? "Re-create job position" : "Add job position",
     rename: "Rename job position",
     close: "Close job position",
   };
   const submitLabels: Record<JobAction, string> = {
-    create: "Add",
+    create: prefill ? "Re-create" : "Add",
     rename: "Save name",
     close: "Close job",
   };

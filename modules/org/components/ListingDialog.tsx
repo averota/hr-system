@@ -22,6 +22,8 @@ interface ListingDialogProps {
   department: UnitRow | null;
   /** Open allocations that use this listing (shown when removing). */
   allocationCount: number;
+  /** Re-create: the Department of a closed listing, preselected in the add form. */
+  prefillDepartmentId?: number;
   onCancel: () => void;
   /** Called after a successful save with a message to show the user. */
   onDone: (message: string) => void;
@@ -36,10 +38,17 @@ export function ListingDialog({
   availableDepartments,
   department,
   allocationCount,
+  prefillDepartmentId,
   onCancel,
   onDone,
 }: ListingDialogProps) {
-  const [departmentId, setDepartmentId] = useState("");
+  const isRecreate = action === "add" && prefillDepartmentId !== undefined;
+  const [departmentId, setDepartmentId] = useState(() =>
+    prefillDepartmentId !== undefined &&
+    availableDepartments.some((d) => d.unit_id === prefillDepartmentId)
+      ? String(prefillDepartmentId)
+      : ""
+  );
   const [date, setDate] = useState(() => todayInPhnomPenh());
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,8 +87,16 @@ export function ListingDialog({
 
   return (
     <Modal
-      title={action === "add" ? "List a Department" : "Remove Department listing"}
-      submitLabel={action === "add" ? "List Department" : "Remove listing"}
+      title={
+        action === "add"
+          ? isRecreate
+            ? "Re-create Department listing"
+            : "List a Department"
+          : "Remove Department listing"
+      }
+      submitLabel={
+        action === "add" ? (isRecreate ? "Re-create" : "List Department") : "Remove listing"
+      }
       canSubmit={canSubmit}
       isSaving={isSaving}
       error={error}

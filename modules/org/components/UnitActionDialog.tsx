@@ -31,6 +31,8 @@ interface UnitActionDialogProps {
   unit: UnitRow | null;
   /** Where a new unit goes. Null = directly under the company (org) or a new Department (pos). */
   parent: UnitRow | null;
+  /** Re-create: pre-fills the add form from a closed unit. Only used with "create". */
+  prefill?: { nameEn: string; nameKm: string | null; levelId: number };
   onCancel: () => void;
   /** Called after a successful save with a message to show the user. */
   onDone: (message: string) => void;
@@ -49,6 +51,7 @@ export function UnitActionDialog({
   action,
   unit,
   parent,
+  prefill,
   onCancel,
   onDone,
 }: UnitActionDialogProps) {
@@ -64,13 +67,18 @@ export function UnitActionDialog({
     [action, tree, unit, units, rules]
   );
 
-  const [nameEn, setNameEn] = useState(action === "rename" && unit ? unit.name_en : "");
+  const [nameEn, setNameEn] = useState(
+    action === "rename" && unit ? unit.name_en : (prefill?.nameEn ?? "")
+  );
   const [nameKm, setNameKm] = useState(
-    action === "rename" && unit ? (unit.name_km ?? "") : ""
+    action === "rename" && unit ? (unit.name_km ?? "") : (prefill?.nameKm ?? "")
   );
-  const [levelId, setLevelId] = useState(
-    allowedLevels.length === 1 ? String(allowedLevels[0].level_id) : ""
-  );
+  const [levelId, setLevelId] = useState(() => {
+    if (prefill && allowedLevels.some((r) => r.level_id === prefill.levelId)) {
+      return String(prefill.levelId);
+    }
+    return allowedLevels.length === 1 ? String(allowedLevels[0].level_id) : "";
+  });
   const [date, setDate] = useState(() => todayInPhnomPenh());
   const [newParent, setNewParent] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -125,7 +133,7 @@ export function UnitActionDialog({
           nameEn,
           nameKm,
         });
-        onDone(`Added "${nameEn.trim()}".`);
+        onDone(`${prefill ? "Re-created" : "Added"} "${nameEn.trim()}".`);
       } else if (action === "rename" && unit) {
         await renameUnit(tree, companyId, unit.unit_id, nameEn, nameKm);
         onDone(`Renamed "${unit.name_en}" to "${nameEn.trim()}".`);
@@ -149,13 +157,17 @@ export function UnitActionDialog({
   }
 
   const titles: Record<UnitAction, string> = {
-    create: parent ? `Add under ${name(parent)}` : "Add top-level unit",
+    create: prefill
+      ? "Re-create unit"
+      : parent
+        ? `Add under ${name(parent)}`
+        : "Add top-level unit",
     rename: "Rename unit",
     close: "Close unit",
     move: "Move unit",
   };
   const submitLabels: Record<UnitAction, string> = {
-    create: "Add",
+    create: prefill ? "Re-create" : "Add",
     rename: "Save name",
     close: "Close unit",
     move: "Move unit",
