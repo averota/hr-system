@@ -149,6 +149,18 @@ export function ClosedUnits({
     router.refresh(); // reload open units from the database
   }
 
+  // Level name of any unit shown here, so a parent (open or closed) can show its level.
+  const levelNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const r of rows ?? []) {
+      map.set(r.unit_id, displayName(locale, r.level_name_en, r.level_name_km));
+    }
+    for (const u of units) {
+      map.set(u.unit_id, displayName(locale, u.level_name_en, u.level_name_km));
+    }
+    return map;
+  }, [rows, units, locale]);
+
   const copy = COPY[tree];
 
   return (
@@ -226,9 +238,18 @@ export function ClosedUnits({
                         </span>
                       </td>
                       <td className="px-4 py-3 text-zinc-700">
-                        {r.parent_unit_id === null
-                          ? ROOT_LABEL[tree]
-                          : displayName(locale, r.parent_name_en ?? "", r.parent_name_km)}
+                        {r.parent_unit_id === null ? (
+                          ROOT_LABEL[tree]
+                        ) : (
+                          <>
+                            {displayName(locale, r.parent_name_en ?? "", r.parent_name_km)}
+                            {tree === "pos" && levelNameById.has(r.parent_unit_id) && (
+                              <span className="ml-2 inline-block rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-700">
+                                {levelNameById.get(r.parent_unit_id)}
+                              </span>
+                            )}
+                          </>
+                        )}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-xs text-zinc-500">
                         {r.valid_from}
