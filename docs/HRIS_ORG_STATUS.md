@@ -18,7 +18,7 @@ Module code: `ORG`. Stages are written "ORG Stage N". Migration headers that say
 | Blueprint state | Written after the build began (not gated). Awaiting your approval. See Blueprint section 5. Updated for 9k and 9l on 2026-11-07 |
 | Current Stage | None in progress. Module closed for now (paused) |
 | Last Stage passed | ORG Stage 9l: Re-create on closed units, jobs and Department listings (browser checks passed on 2026-11-07). Gap fixes passed after it: `ORG-T020` (1000-row warning, browser check passed), `ORG-T021` (Phnom Penh date, migration `029`, SQL test passed) and `ORG-T023` (row-limit warning for the unit and rule lists, reported passed by you), all on 2026-11-07 |
-| Next (when resumed) | Settle the assumptions (section 6, step 5), then plan Members, roles and setup (step 6). Small leftovers: record the `ORG-T023` files (`ORG-I08`) and fill the `028` column lists in `HRIS_ORG_FRONTEND_REFERENCE.md` |
+| Next (when resumed) | Settle the assumptions (section 6, step 5). Members, roles and setup are planned and built in `PLT` (`HRIS_PLT_BLUEPRINT.md`, `HRIS_PLT_STATUS.md`). Small leftovers: record the `ORG-T023` files (`ORG-I08`) and fill the `028` column lists in `HRIS_ORG_FRONTEND_REFERENCE.md` |
 | Blocking | None. `ORG-T022` waits for the Khmer names |
 
 * The database (`000` to `029`) is applied to the dev project. `028` has no SQL test file (checked in the browser). `029` has a SQL test.
@@ -211,10 +211,10 @@ Start from the **latest** version when changing these:
 3. **ORG Stage 9l: Re-create button on history rows. Passed** for units, jobs and Department listings (checked in the browser on 2026-11-07). Level rules and allocations were not built on purpose.
 4. **Gap fixes** (tasks `ORG-T020` to `ORG-T023`). `ORG-T020`, `ORG-T021` (`029`) and `ORG-T023` passed. `ORG-T021b` accepted as a known limitation. Left: `ORG-T022` (needs the Khmer names). Done when checked in the browser or with a SQL test.
 5. **Settle the assumptions** (`ORG-Q01` to `ORG-Q08` in the Blueprint). Go through them one by one. Each becomes a decision or changes. Start with "any tenant member sees everything", since the Employee module depends on it. Done when each item is marked Settled.
-6. **Members, roles and setup: planning document.** Written before any code, in the same style as the Blueprint (use `HRIS_BLUEPRINT_TEMPLATE.md`, which now has the date and time rules in section 4.10). Choose a module code (`PLT` is proposed, waiting for your confirmation) and create `HRIS_<CODE>_BLUEPRINT.md` and `HRIS_<CODE>_STATUS.md` from the templates. Cover: scope; setup functions (create tenant, company, membership); role management functions (give and remove a role, change a role); who may see all assignments of a tenant; what `members.manage` allows; how reads are governed (decision on `org.read`); screens; stages. The last admin guard (`025`) is already part of it. Done when the document is agreed.
-7. **Build Members, roles and setup in small stages.** Database functions and tests first, then the members screen.
+6. **Members, roles and setup: moved to `PLT`.** The planning document is `HRIS_PLT_BLUEPRINT.md` and the build plan is `HRIS_PLT_STATUS.md`. The original brief follows, kept for reference. **Members, roles and setup: planning document.** Written before any code, in the same style as the Blueprint (use `HRIS_BLUEPRINT_TEMPLATE.md`, which now has the date and time rules in section 4.10). Choose a module code (`PLT` is proposed, waiting for your confirmation) and create `HRIS_<CODE>_BLUEPRINT.md` and `HRIS_<CODE>_STATUS.md` from the templates. Cover: scope; setup functions (create tenant, company, membership); role management functions (give and remove a role, change a role); who may see all assignments of a tenant; what `members.manage` allows; how reads are governed (decision on `org.read`); screens; stages. The last admin guard (`025`) is already part of it. Done when the document is agreed.
+7. **Build Members, roles and setup in small stages.** Now `PLT` Stages 1 to 5. Database functions and tests first, then the members screen.
 
-**Project documents to update when convenient** (they are outside ORG): the ORG row in `HRIS_MODULE_REGISTER.md` (state: paused), a date and time scenario in `HRIS_BUILD_STANDARDS.md` section 5 (the Blueprint template already has the rules, section 4.10), and a lesson in `HRIS_PROJECT_OVERVIEW.md` section 6 (use `private.org_today()`, never `current_date`).
+**Project documents to update when convenient** (they are outside ORG). Done on 2026-11-07: the ORG row in `HRIS_MODULE_REGISTER.md` (paused) and the `private.org_today()` lesson in `HRIS_PROJECT_OVERVIEW.md` section 6. Still open: the date and time scenario in `HRIS_BUILD_STANDARDS.md`. Original list: the ORG row in `HRIS_MODULE_REGISTER.md` (state: paused), a date and time scenario in `HRIS_BUILD_STANDARDS.md` section 5 (the Blueprint template already has the rules, section 4.10), and a lesson in `HRIS_PROJECT_OVERVIEW.md` section 6 (use `private.org_today()`, never `current_date`).
 
 **Later or optional (not scheduled)**
 
@@ -233,11 +233,11 @@ Start from the **latest** version when changing these:
 * Optional: send `026_trimmed_names_test.sql` (or `001_tenancy.sql`) if you want the `028` SQL test (`ORG-T008`).
 * Confirm the file names of migration `023` and its test, if you want them recorded.
 * Settle the assumptions in the Blueprint, section 2 (Next plan, step 5).
-* Choose the module code for Members, roles and setup (Next plan, step 6).
+* Module code for Members, roles and setup: confirmed as `PLT` (`HRIS_MODULE_REGISTER.md`). Nothing to choose.
 * Supply the Khmer names for the 7 levels when ready (`ORG-T022`).
 * Test file names for `006`, `007`, `008` and `011` if you want them recorded.
 * Review `HRIS_ORG_BLUEPRINT.md`: approve it, or correct it (especially the "Not recorded" scenario answers, `ORG-Q14`, `ORG-Q15`, and the Proposed UAT scenarios).
-* Update the ORG row in `HRIS_MODULE_REGISTER.md` (send the file if you want Claude to do it).
+* ORG row in `HRIS_MODULE_REGISTER.md`: done (state paused, 2026-11-07).
 
 ---
 
@@ -288,9 +288,9 @@ Start from the **latest** version when changing these:
 | History views and as-of reads show the **current** names of units and jobs (by design: name history was dropped in `027`) | A rename changes names everywhere, also in history. This is wanted: a corrected name shows everywhere | None |
 | A reorg with a future effective date takes effect immediately in the `*_current` views (the new link has an empty `valid_to`), but an as-of read before that date still shows the old parent | Current and as-of can differ until the date arrives | None (there is no "starts later" state, `ORG-D12`) |
 | The Moves (reorg) view cannot tell a unit that was moved and closed on the same day from a plain close, so that move is not listed | A rare move is missing from the list | None |
-| Reads are open to every tenant member, history included | Cannot be used for sensitive data (`EMP`) | Decide the read rule (`ORG-Q01`) |
+| Reads are open to every tenant member, history included | Cannot be used for sensitive data (`EMP`) | Decided at platform level (`PLT-D10`): each later module enforces its own read code. ORG reads stay open. Mark `ORG-Q01` settled in the ORG Blueprint when it is reviewed |
 | No function creates a tenant, company or membership (done by hand with `service_role`). A member added later has no role until one is given | Setup is manual | `PLT` |
-| No function or screen gives or removes roles. A user sees only their own assignments. Who may see all assignments of a tenant is undecided | Role management is manual | `PLT` |
+| No function or screen gives or removes roles. A user sees only their own assignments. Who may see all assignments of a tenant is decided in `PLT` (`PLT-D03`, `PLT-D07`, `PLT-D16`) and not built yet | Role management is manual | `PLT` |
 | Headcount grid, history lists, as-of reads and the unit and rule lists are not paged. Supabase returns at most 1000 rows per request, so a list or total is too low beyond that. The current screens load all companies in one request in `app/page.tsx`, so the limit counts all companies together | Wrong totals on large data. A warning now shows on every list (`ORG-T020`, `ORG-T023`) | Real paging when real data volume is known (`ORG-Q11`) |
 | The date parameters of the close, reorg, listing, allocation and disable-rule functions (`008`, `009`, `014`, `015`, `016`, `017`, `019`, `020`) still default to the UTC date (`current_date`). Called without a date between 00:00 and 07:00 in Phnom Penh, a record is dated one day early | None while the frontend is the only caller, because it always passes the date (default from `todayInPhnomPenh()`). A direct SQL call or a future import without a date is affected | Accepted (`ORG-T021b`). The create functions already use the Phnom Penh date (`029`). New modules follow the date rules in the Blueprint template, section 4.10 |
 | Khmer level names are empty | Khmer interface shows the level code or English | Seed migration when names are supplied (`ORG-T022`) |
