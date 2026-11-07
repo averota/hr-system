@@ -1,26 +1,40 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+  Colour names (FND-D07). Use these classes instead of fixed grey values:
+  bg-primary, bg-surface, bg-surface-muted, border-border, text-text,
+  text-text-muted, bg-danger-soft, text-danger, bg-warning-soft, text-warning.
+  Values match the greys the screens use today (zinc), so nothing changes
+  visually until a screen switches to the names.
+*/
+@theme {
+  --color-primary: #18181b;
+  --color-primary-hover: #27272a;
+  --color-surface: #ffffff;
+  --color-surface-muted: #fafafa;
+  --color-border: #e4e4e7;
+  --color-text: #18181b;
+  --color-text-muted: #52525b;
+  --color-danger: #b91c1c;
+  --color-danger-soft: #fef2f2;
+  --color-warning: #b45309;
+  --color-warning-soft: #fffbeb;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-geist-sans), var(--font-khmer), ui-sans-serif,
+    system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/*
+  Light colours only. The screens use fixed light colours, so a dark page
+  background made the page and the screens disagree. Dark mode can come back
+  later as one change to the colour names above.
+*/
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+  font-family: var(--font-geist-sans), var(--font-khmer), ui-sans-serif,
+    system-ui, sans-serif;
 }

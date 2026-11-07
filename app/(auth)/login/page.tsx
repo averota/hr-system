@@ -1,4 +1,4 @@
-// app/login/page.tsx
+// app/(auth)/login/page.tsx
 "use client";
 
 import { useState, type FormEvent } from "react";
@@ -34,10 +34,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4">
-      <div className="w-full max-w-sm rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
-        <h1 className="text-xl font-semibold text-zinc-900">HRIS Sign In</h1>
-        <p className="mt-1 text-sm text-zinc-600">
+    <div className="flex min-h-screen items-center justify-center bg-surface-muted px-4">
+      <div className="w-full max-w-sm rounded-lg border border-border bg-surface p-6 shadow-sm">
+        <h1 className="text-xl font-semibold text-text">HRIS Sign In</h1>
+        <p className="mt-1 text-sm text-text-muted">
           Sign in with your account to access your organization.
         </p>
 
@@ -45,7 +45,7 @@ export default function LoginPage() {
           <div>
             <label
               htmlFor="email"
-              className="block text-sm font-medium text-zinc-700"
+              className="block text-sm font-medium text-text-muted"
             >
               Email
             </label>
@@ -56,14 +56,14 @@ export default function LoginPage() {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none"
+              className="mt-1 block w-full rounded-md border border-border px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
             />
           </div>
 
           <div>
             <label
               htmlFor="password"
-              className="block text-sm font-medium text-zinc-700"
+              className="block text-sm font-medium text-text-muted"
             >
               Password
             </label>
@@ -74,14 +74,14 @@ export default function LoginPage() {
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none"
+              className="mt-1 block w-full rounded-md border border-border px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
             />
           </div>
 
           {errorMessage && (
             <p
               role="alert"
-              className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700"
+              className="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger"
             >
               {errorMessage}
             </p>
@@ -90,7 +90,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
+            className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
           >
             {isLoading ? "Signing in..." : "Sign in"}
           </button>
