@@ -14,7 +14,7 @@ Origin labels (as in `HRIS_NAMING_CONVENTION.md`): **Your decision** (answered b
 |---|---|
 | Module code | `PLT` |
 | Table prefix | None. Names stay plain (`access_log`, like `tenant`, `permission`). Recorded in `HRIS_NAMING_CONVENTION.md` section 3 with the first PLT migration (Stage 2b) |
-| Phase now | P1 to P3 draft for part A. Section 2 answered on 2026-11-07. One question is open (`Q18`) and it does not block Stage 1 |
+| Phase now | P1 to P3 for part A approved by you on 2026-11-07 (Stage 0 closed). Stage 1 passed 2026-11-07. One question is open (`Q18`), not blocking |
 | Depends on | `FND` (tenancy tables `core.tenant`, `core.parent_company`, `core.tenant_member`, migration `001`) |
 | Used by | `ORG` (roles, `check_permissions`), and every later module (permission codes, approvals, lookups, files, scheduling) |
 | Existing migrations | `001` tenancy, `012` roles, `013` `has_permission`, `021` `check_permissions`, `025` last tenant admin guard (applied, test passed 2026-11-07), `029` `private.org_today()` (the date helper, section 4.10) |
@@ -343,8 +343,8 @@ Fixed text for all modules (copied from `HRIS_BLUEPRINT_TEMPLATE.md`). Reason: t
 
 | Stage | Capability (a user can...) | Migrations | Frontend | Depends on | Status |
 |---|---|---|---|---|---|
-| 0 | Setup: decisions recorded, names and date defaults checked (done 2026-11-07), documents aligned, Blueprint approved | none | none | none | In progress |
-| 1 | An operator creates a tenant, company and first admin without hand SQL | setup function and test | none (the first admin's login is created by the server-only step, built here in its simplest form) | Stage 0 | Not started |
+| 0 | Setup: decisions recorded, names and date defaults checked (done 2026-11-07), documents aligned, Blueprint approved | none | none | none | Closed (2026-11-07) |
+| 1 | An operator creates a tenant, company and first admin without hand SQL | setup function and test | none (the first admin's login is created by the server-only step, built here in its simplest form) | Stage 0 | Passed (2026-11-07) |
 | 2 | Any member sees their own access. Administrators see the members their scope covers. The scope selector switches to the user's assigned access | read functions (`get_my_access`, `get_tenant_members`, `get_my_scope`), code `members.read`, test | My access, Members list (read only), scope selector filter | Stage 1, Frontend Foundation, `FND-Q09` | Not started |
 | 2b | Every change to a login, a membership or a role is logged. Tenant administrators read the log | access log table, trigger, read function and test | Access log screen | Stage 2 | Not started |
 | 3 | An administrator gives, changes and removes a role. A company administrator stays inside their company | role wrappers and test | Member detail, Give role dialog | Stage 2b | Not started |

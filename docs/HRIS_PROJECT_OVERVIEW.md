@@ -104,7 +104,7 @@ Moved to `HRIS_BUILD_STANDARDS.md`, section 9 (working rules for Claude). The bu
 - **Bilingual names:** every name has `name_en` (required) and `name_km` (optional).
 - **Tenancy tables:** `core.tenant`, `core.parent_company` (the "company"), `core.tenant_member` (which logged-in users belong to which tenant). Created in migration `001`.
 - **Row visibility pattern:** a user sees only rows of companies whose tenant they belong to. Company-scoped tables use a policy of the form `company_id in (select id from core.parent_company)`, and `parent_company` itself is filtered through `private.user_tenant_ids()`. Reuse this pattern for every new company-scoped table.
-- **Frontend access:** logged-in users read through `public` views and functions. They write only through `public` write wrappers (ORG has 18, migrations `014` to `020` and `022`; the history reads are `023`, `024` and `028`). Each wrapper is `security definer`, granted to `authenticated` and `service_role` (not `anon`), and checks the caller's permission with `private.has_permission` (section 5.7). The `private` write functions behind them stay `service_role` only. Not built yet: functions to create a tenant, company or membership, and to give or remove roles (planned in `PLT`, see `HRIS_PLT_STATUS.md`).
+- **Frontend access:** logged-in users read through `public` views and functions. They write only through `public` write wrappers (ORG has 18, migrations `014` to `020` and `022`; the history reads are `023`, `024` and `028`). Each wrapper is `security definer`, granted to `authenticated` and `service_role` (not `anon`), and checks the caller's permission with `private.has_permission` (section 5.7). The `private` write functions behind them stay `service_role` only. Tenant setup exists (`030`). Not built yet: functions to give or remove roles and to create further logins (planned in `PLT` Stages 3 and 4, see `HRIS_PLT_STATUS.md`).
 - **Read layer:** views use `security_invoker`, so the caller's row level security applies.
 - **Privileges:** every function has an explicit `revoke` and `grant`. For anything in `public`, revoke from `public`, `anon` and `authenticated` first, then grant to `authenticated` and `service_role`.
 - **Dated rows:** the first module (ORG) keeps history with `valid_from` and `valid_to` (empty `valid_to` = current) and never edits a row, it closes it and creates a new one. Whether a later module needs the same is decided per module.
@@ -118,6 +118,7 @@ Moved to `HRIS_BUILD_STANDARDS.md`, section 9 (working rules for Claude). The bu
 | `013_has_permission.sql` | `013_has_permission_test.sql` | `private.has_permission`, `private.has_tenant_permission` (built in ORG Stage 9b-2) |
 | `025_last_tenant_admin_guard.sql` | `025_last_tenant_admin_guard_test.sql` | Trigger that refuses deleting or downgrading the last tenant-wide `tenant_admin` (applied, test passed 2026-11-07) |
 | `029_phnom_penh_dates.sql` | `029_phnom_penh_dates_test.sql` | `private.org_today()`: the one source of "today" in SQL (Phnom Penh date). Passed 2026-11-07 |
+| `030_tenant_setup.sql` | `030_tenant_setup_test.sql` | `private.create_tenant_setup`: creates tenant, company, membership and tenant-wide `tenant_admin` in one transaction, repeat safe, `service_role` only (PLT Stage 1, passed 2026-11-07) |
 
 The ORG status document lists every other migration (`002` to `011`, `014` to `024`, `026` to `028`) and also `012` and `013` (platform-wide, but built during ORG Stage 9).
 
@@ -184,7 +185,7 @@ Built in migrations `012` and `013`. The starting permission codes are seeded in
 - The test for `025` passed on 2026-11-07. `026` is recorded as done in `HRIS_PLT_STATUS.md`.
 - Module codes are all confirmed (`HRIS_MODULE_REGISTER.md`). `PLT` is the module for members, roles and setup.
 - Read rule: decided (`PLT-D10`). ORG reads stay open, and every later module enforces its own read code from its first Stage. PLT Stage 5 writes this into the platform rules.
-- A way to create tenants, companies, members and role assignments does not exist yet (done by hand with `service_role`). Planned in `PLT` Stages 1 to 4 (`HRIS_PLT_STATUS.md`).
+- Tenants, companies and the first admin are created by `private.create_tenant_setup` (`030`). Roles and further logins still have no function or screen: `PLT` Stages 3 and 4 (`HRIS_PLT_STATUS.md`).
 - No production Supabase project, no Vercel deployment and no Cloudflare R2 bucket yet. Set them up, with a migration deploy process, before many more migrations pile up.
 - Review the Proposed items in `HRIS_BUILD_STANDARDS.md` and confirm or change them.
 - Verify the Cambodia assumptions (`HRIS_CONTEXT.md`) before the owning module's Phase P1 closes.

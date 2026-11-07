@@ -14,14 +14,14 @@ Module code: `PLT`. Stages are written "PLT Stage N". Parts B to E (master data 
 
 | Item | Value |
 |---|---|
-| Phase now | P1 to P3 draft for part A (Stage 0) |
-| Blueprint state | Draft. Decisions `PLT-D01` to `PLT-D18` recorded on 2026-11-07. One open question (`PLT-Q18`, not blocking). Not yet approved by you (`PLT-T009`) |
-| Current Stage | Stage 0 (setup), in progress. The checks (`PLT-T003` to `PLT-T005`) are done |
-| Last Stage passed | None. Existing platform pieces built during ORG: `001`, `012`, `013`, `021`, `025` (tested 2026-11-07), `029` (section 5.1) |
-| Next | Close Stage 0 (align the other documents, approve the Blueprint), then Stage 1 (tenant setup function) |
+| Phase now | P4 to P5. Stage 1 passed. Next: Frontend Foundation Stage, then Stage 2 |
+| Blueprint state | Approved by you on 2026-11-07 (`PLT-T009`). Decisions `PLT-D01` to `PLT-D18`. One open question (`PLT-Q18`, not blocking) |
+| Current Stage | None in progress. Stage 1 passed on 2026-11-07 |
+| Last Stage passed | Stage 1 (tenant setup, passed 2026-11-07). Stage 0 closed 2026-11-07. Existing platform pieces built during ORG: `001`, `012`, `013`, `021`, `025` (tested 2026-11-07), `029` (section 5.1) |
+| Next | Frontend Foundation Stage (`HRIS_FRONTEND_FOUNDATION.md`, F0 to F6), then Stage 2 |
 | Blocking | Nothing blocks Stage 1. `FND-Q09` blocks Stage 2 |
 
-* No PLT migration, test or screen exists yet. Everything PLT uses today was built inside ORG (section 5).
+* PLT migration `030` and its test are written, not yet applied. No PLT screen exists yet. Everything else PLT uses today was built inside ORG (section 5).
 * The **Frontend Foundation Stage** (`HRIS_FRONTEND_FOUNDATION.md`, steps F0 to F6) runs after PLT Stage 1 and before PLT Stage 2. Its decisions `FND-D01` to `FND-D08` were answered on 2026-11-07 (work scope selector, route groups, shared folders, sidebar).
 
 ---
@@ -32,8 +32,8 @@ Module code: `PLT`. Stages are written "PLT Stage N". Parts B to E (master data 
 
 | Stage | Capability (a user can...) | Blueprint items covered | Migrations planned | Frontend planned | Depends on | State |
 |---|---|---|---|---|---|---|
-| 0 | Setup: decisions recorded, names and date defaults checked, documents aligned, Blueprint approved | `D01` to `D18`, `Q13`, `Q17`, `Q18`, section 4.10 | none | none | none | **In progress** |
-| 1 | An operator creates a tenant, company and first admin without hand SQL | `W1`, `D02`, `UAT01`, `UAT02`, `SC-13`, objective 1, 4.4 (`private.create_tenant_setup`), 4.10 | `NNN_tenant_setup.sql` and its test | none. The first admin's login is created by the server-only step in its simplest form (`PLT-T012`) | Stage 0 | Planned |
+| 0 | Setup: decisions recorded, names and date defaults checked, documents aligned, Blueprint approved | `D01` to `D18`, `Q13`, `Q17`, `Q18`, section 4.10 | none | none | none | **Closed** (2026-11-07) |
+| 1 | An operator creates a tenant, company and first admin without hand SQL | `W1`, `D02`, `UAT01`, `UAT02`, `SC-13`, objective 1, 4.4 (`private.create_tenant_setup`), 4.10 | `NNN_tenant_setup.sql` and its test | none. The first admin's login is created by the server-only step in its simplest form (`PLT-T012`) | Stage 0 | **Passed** (2026-11-07) |
 | FND | Frontend Foundation (not a PLT Stage): shell, work scope selector, shared folders, import rules. Steps F0 to F6 | `HRIS_FRONTEND_FOUNDATION.md`, `FND-D01` to `FND-D08` | none | Shell, move of ORG shared pieces | Stage 1 | Planned |
 | 2 | Any member sees their own access. Administrators see the members their scope covers. The scope selector switches to the user's assigned access | `W5`, `D03`, `D07`, `D16`, `UAT03` to `UAT07`, `SC-17`, `SC-21`, 3.1 (My access, Members list) | `NNN_members_read.sql`: code `members.read` (`hr_admin`, `tenant_admin`), `public.get_my_access`, `public.get_tenant_members`, `public.get_my_scope`, test | My access, Members list (read only), scope selector filter | Stage 1, FND, `FND-Q09` | Planned |
 | 2b | Every change to a login, a membership or a role is logged. Tenant administrators read the log | `D08`, `UAT08`, `UAT09`, `SC-01`, `SC-12`, `SC-21`, 4.2 (`core.access_log`), 4.9 | `NNN_access_log.sql`: log table, trigger, `public.get_access_log`, test | Access log screen | Stage 2 | Planned |
@@ -58,18 +58,18 @@ Module code: `PLT`. Stages are written "PLT Stage N". Parts B to E (master data 
 | `PLT-T005` | 0 | Answer `Q13` from `012` and `013` | Check | `Q13`, `D05` | Claude | Done | 2026-11-07 | (a) cross-tenant targets are refused by the composite foreign keys in `012`. (b) `has_permission(company, 'members.manage')` already resolves company scope. (c) the wrapper limits a company administrator, no new guard. New finding: org unit and Department scope never grant `members.manage` (`PLT-Q17`) |
 | `PLT-T006` | 0 | Confirm `Q09` (manager and employee scopes) | Decision | `Q09` | You | Done | 2026-11-07 | `PLT-D17` |
 | `PLT-T007` | 0 | Align the other documents with the decisions: Overview 5.7 (`members.manage` at tenant or company scope, `D05`), 5.4 (reads rule, `D10`), 5.3 and section 7 (`025` is tested, `026` is done), 5.5 (date rule now `private.org_today()`, `DT-1` to `DT-11`), `HRIS_ORG_STATUS.md` section 3 (assumption wording), and the `013` header comment (applied migrations are not edited, noted in the ORG Frontend Reference instead) | Document | 1.3 | Claude | Done | 2026-11-07 | Overview 5.1 to 5.7, 6, 7 and `HRIS_ORG_STATUS.md` (Next plan, Pending, section 11) updated. `HRIS_ORG_STATUS.md` held no `members.manage` text (see `PLT-I01`). `013` header handled by `PLT-I03` |
-| `PLT-T008` | 0 | Update the PLT row in `HRIS_MODULE_REGISTER.md` when Stage 0 closes | Document | | Claude | To do | | |
-| `PLT-T009` | 0 | You approve the Blueprint for part A, or correct it | Decision | Blueprint | You | To do | | Closes Stage 0 together with `PLT-T007` and `PLT-T008` |
+| `PLT-T008` | 0 | Update the PLT row in `HRIS_MODULE_REGISTER.md` when Stage 0 closes | Document | | Claude | Done | 2026-11-07 | |
+| `PLT-T009` | 0 | You approve the Blueprint for part A, or correct it | Decision | Blueprint | You | Done | 2026-11-07 | Closes Stage 0 together with `PLT-T007` and `PLT-T008` |
 | `PLT-T016` | 0 | Answer `Q17`: should an administrator at org unit or Department scope manage members? Recommended: no, revisit in `EMP` | Decision | `Q17` | You | Done | 2026-11-07 | Recorded as `PLT-D18` (Business Unit scope also holds `members.manage`). Follow-up `PLT-Q18` |
-| `PLT-T017` | 0 | Add to `HRIS_NAMING_CONVENTION.md`: `get_<things>` pattern for permission-checked read functions (section 4), PLT has no table prefix (section 3), and the frontend naming rules of `HRIS_FRONTEND_FOUNDATION.md` 3.3 (section 5, with Foundation step F6) | Document | 4.4 | Claude | To do | | Convention section 4 part with Stage 2, section 5 with F6 |
-| `PLT-T018` | 0 | Answer `Q18`: what a Business Unit administrator may see and do. Proposed default in the Blueprint | Decision | `Q18` | You | To do | | Does not block Stage 1. Needed before Stage 2 |
+| `PLT-T017` | 2 | Add to `HRIS_NAMING_CONVENTION.md`: `get_<things>` pattern for permission-checked read functions (section 4), PLT has no table prefix (section 3), and the frontend naming rules of `HRIS_FRONTEND_FOUNDATION.md` 3.3 (section 5, with Foundation step F6) | Document | 4.4 | Claude | Carried to Stage 2 | | Convention section 4 part with Stage 2, section 5 with F6 |
+| `PLT-T018` | 1 | Answer `Q18`: what a Business Unit administrator may see and do. Proposed default in the Blueprint | Decision | `Q18` | You | To do | | Does not block Stage 1. Needed before Stage 2 |
 | `PLT-T019` | 2 or 3 | Migration for `PLT-D18`: set the org unit flag on `members.manage`, add a Business Unit level check, and make the read and wrapper functions follow `Q18`. Needs `002_hierarchy_levels.sql` (level code) | Migration | `D18`, `Q18` | Claude | Not started | | Written with the first Stage that needs it |
-| `PLT-T010` | 1 | Write `NNN_tenant_setup.sql`: `private.create_tenant_setup` (tenant, company, membership, tenant-wide `tenant_admin`, one transaction, repeat safe, `service_role` only) | Migration | `W1`, `SC-13`, 4.4 | Claude | To do | | Header `-- NNN: tenant setup (PLT Stage 1)`. The tenancy tables have no business date. If the function writes one it uses `private.org_today()` |
-| `PLT-T011` | 1 | Write `NNN_tenant_setup_test.sql`: creates everything, second run creates nothing new, no access for `anon` and `authenticated`, expected date by the Phnom Penh formula if a date is written (`DT-10`) | SQL test | `UAT01`, `UAT02` | Claude | To do | | |
-| `PLT-T012` | 1 | Decide and build the simplest first-admin login step (an operator script or a server-only route, run with the secret key). Generates a temporary password, shown once. The real screen version is Stage 4 | Frontend | `W1`, `D09` | Claude | To do | | The exact Supabase admin calls are read from the current Supabase documentation first, not assumed. The forced password change is Stage 4 |
-| `PLT-T013` | 1 | Add the server-only secret key variable to `.env.local` (never a `NEXT_PUBLIC_` name). Add it to Vercel later with the other variables | Check | 1.3 | You | To do | | Never in the browser, never committed |
-| `PLT-T014` | 1 | Run the `DT-11` search on the new migration before applying it | Check | 4.10 | You | To do | | Only hit allowed: inside `private.org_today()` (not in the new file) |
-| `PLT-T015` | 1 | Browser check of `UAT01`: the first admin signs in and sees the ORG module | Check | `UAT01` | You | To do | | The forced password change is built in Stage 4 and is not part of this check |
+| `PLT-T010` | 1 | Write `NNN_tenant_setup.sql`: `private.create_tenant_setup` (tenant, company, membership, tenant-wide `tenant_admin`, one transaction, repeat safe, `service_role` only) | Migration | `W1`, `SC-13`, 4.4 | Claude | Passed | 2026-11-07 | Header `-- NNN: tenant setup (PLT Stage 1)`. The tenancy tables have no business date. If the function writes one it uses `private.org_today()` |
+| `PLT-T011` | 1 | Write `NNN_tenant_setup_test.sql`: creates everything, second run creates nothing new, no access for `anon` and `authenticated`, expected date by the Phnom Penh formula if a date is written (`DT-10`) | SQL test | `UAT01`, `UAT02` | Claude | Passed | 2026-11-07 | |
+| `PLT-T012` | 1 | Decide and build the simplest first-admin login step (an operator script or a server-only route, run with the secret key). Generates a temporary password, shown once. The real screen version is Stage 4 | Frontend | `W1`, `D09` | Claude | Passed | 2026-11-07 | The exact Supabase admin calls are read from the current Supabase documentation first, not assumed. The forced password change is Stage 4 |
+| `PLT-T013` | 1 | Add the server-only secret key variable to `.env.local` (never a `NEXT_PUBLIC_` name). Add it to Vercel later with the other variables | Check | 1.3 | You | Done | 2026-11-07 | Never in the browser, never committed |
+| `PLT-T014` | 1 | Run the `DT-11` search on the new migration before applying it | Check | 4.10 | You | Done | 2026-11-07 | Only hit allowed: inside `private.org_today()` (not in the new file). Result: hits only in older ORG migrations (accepted, `ORG-T021b`), none in `030` |
+| `PLT-T015` | 1 | Browser check of `UAT01`: the first admin signs in and sees the ORG module | Check | `UAT01` | You | Done | 2026-11-07 | The forced password change is built in Stage 4 and is not part of this check |
 
 ---
 
@@ -79,7 +79,8 @@ Module code: `PLT`. Stages are written "PLT Stage N". Parts B to E (master data 
 
 | Stage | Capability | Migration(s) | SQL test | Browser check | Result | Date | Notes (decisions made, changes to the plan) |
 |---|---|---|---|---|---|---|---|
-| 0 | Setup | none | n/a | n/a | In progress | 2026-11-07 | Blueprint written and updated. Decisions `PLT-D01` to `PLT-D18` recorded. Stage 2b (access log) added before Stage 3. Automatic removal moved to "Later". Checks done: names, date defaults, `Q13` (no new guard). `get_my_scope` added to Stage 2 for the scope selector (`FND-D06`). `Q17` opened. `PLT-T007` and `Q17` done 2026-11-07 (`PLT-D18`, `Q18` opened). Left: register row (`PLT-T008`), approve the Blueprint (`PLT-T009`), naming convention (`PLT-T017`), `Q18` |
+| 0 | Setup | none | n/a | n/a | Passed | 2026-11-07 | Closed on your instruction (Blueprint approved, remaining items carried: `PLT-T017` to Stage 2, `PLT-T018` open). Blueprint written and updated. Decisions `PLT-D01` to `PLT-D18` recorded. Stage 2b (access log) added before Stage 3. Automatic removal moved to "Later". Checks done: names, date defaults, `Q13` (no new guard). `get_my_scope` added to Stage 2 for the scope selector (`FND-D06`). `Q17` opened. `PLT-T007` and `Q17` done 2026-11-07 (`PLT-D18`, `Q18` opened). Left: register row (`PLT-T008`), approve the Blueprint (`PLT-T009`), naming convention (`PLT-T017`), `Q18` |
+| 1 | An operator creates a tenant, company and first admin without hand SQL | `030_tenant_setup.sql` | `030_tenant_setup_test.sql` (22 checks) | Done: login by script, setup by SQL, sign-in | Passed | 2026-11-07 | Setup function takes the admin email and refuses a login that belongs to another tenant (`PLT-D12`). The first test version used a temp table, replaced by one `do` block that ends in an error message on purpose. `PLT-T014` (the `DT-11` search) done: no hit in `030` |
 
 ---
 
@@ -87,7 +88,7 @@ Module code: `PLT`. Stages are written "PLT Stage N". Parts B to E (master data 
 
 ### 5.1 Migrations and tests
 
-No PLT migration is written yet. Existing platform migrations that PLT uses (built during ORG, details in `HRIS_ORG_STATUS.md` section 5.1):
+PLT migrations: `030_tenant_setup.sql` (`private.create_tenant_setup`, applied) and `030_tenant_setup_test.sql` (passed 2026-11-07, 22 checks). The test is one `do` block that ends in an error message on purpose (the SQL editor does not keep temp tables between statements). Existing platform migrations that PLT uses (built during ORG, details in `HRIS_ORG_STATUS.md` section 5.1):
 
 | File | Built in | What it gives PLT | Test file |
 |---|---|---|---|
@@ -101,7 +102,7 @@ No PLT migration is written yet. Existing platform migrations that PLT uses (bui
 
 ### 5.2 Frontend files
 
-No PLT frontend file exists yet. Existing files PLT will use:
+`scripts/create-first-admin.mjs` (written 2026-11-07, `PLT-T012`: creates the first admin's login with the secret key and prints a temporary password once). No PLT screen exists yet. Existing files PLT will use:
 
 | Path | Purpose | Depends on | Last changed in Stage |
 |---|---|---|---|
@@ -126,8 +127,8 @@ Start from the **latest** version when changing these:
 
 Do the steps in order. Each one is validated before the next starts.
 
-1. **Close Stage 0.** Documents aligned (`PLT-T007`, done) and `Q17` answered (`PLT-D18`). Left: update the register row (`PLT-T008`), approve the Blueprint (`PLT-T009`), answer `Q18` (`PLT-T018`, not blocking Stage 1).
-2. **Stage 1: tenant setup.** Migration and test (`PLT-T010`, `PLT-T011`), first-admin login step (`PLT-T012`), secret key variable (`PLT-T013`), date search (`PLT-T014`), browser check (`PLT-T015`). Done when the SQL test passes and a first admin signs in.
+1. **Stage 0 closed** (2026-11-07). `PLT-T017` moves to Stage 2, `Q18` stays open (`PLT-T018`).
+2. **Stage 1: tenant setup (passed 2026-11-07).** Order followed: add the key (`PLT-T013`), run the date search (`PLT-T014`), `npm run push:db`, run `030_tenant_setup_test.sql` in the SQL editor (all rows true), create the login with the script, run `select private.create_tenant_setup(...)`, sign in (`PLT-T015`). Tasks: migration and test (`PLT-T010`, `PLT-T011`), first-admin login step (`PLT-T012`), secret key variable (`PLT-T013`), date search (`PLT-T014`), browser check (`PLT-T015`). Done when the SQL test passes and a first admin signs in.
 3. **Frontend Foundation Stage** (`HRIS_FRONTEND_FOUNDATION.md`, F0 to F6). Done when ORG still works on the new shell with one and with several companies selected, and `npm run lint` and `npm test` pass.
 4. **Stage 2: read access.** `FND-Q09` answered first.
 5. **Stage 2b: access log.**
@@ -140,10 +141,9 @@ Do the steps in order. Each one is validated before the next starts.
 
 ## 7. Pending from you
 
-* Approve the Blueprint, or correct it (`PLT-T009`).
 * Answer `Q18` (not blocking Stage 1) and `FND-Q09` (before Stage 2).
 * For `PLT-T019` later: `002_hierarchy_levels.sql`.
-* Before Stage 1: add the server-only secret key variable to `.env.local` (`PLT-T013`).
+* Frontend Foundation Stage: attach `HRIS_FRONTEND_FOUNDATION.md` and answer `FND-Q09`.
 * For the Foundation Stage F1 to F4: `OrgConfigView.tsx`, `Modal.tsx`, `AsyncSelect.tsx`, `permissions.ts`, `queries.ts`, `app/login/page.tsx`, `proxy.ts`, `eslint.config.mjs`.
 * Later: `HRIS_CONTEXT.md` (personal data and retention rows, for the access log retention).
 
@@ -155,8 +155,8 @@ Do the steps in order. Each one is validated before the next starts.
 
 | Scenario | Covered in Stage | Result | Date | Note |
 |---|---|---|---|---|
-| `PLT-UAT01` Set up a tenant | 1 | Not run | | |
-| `PLT-UAT02` Setup is repeat safe | 1 | Not run | | |
+| `PLT-UAT01` Set up a tenant | 1 | Passed | 2026-11-07 | New tenant, company and first admin created with the script and `030`. Sign-in worked |
+| `PLT-UAT02` Setup is repeat safe | 1 | Passed (SQL test) | 2026-11-07 | `030_tenant_setup_test.sql`, 22 checks |
 | `PLT-UAT03` See own access | 2 | Not run | | |
 | `PLT-UAT04` Tenant admin sees all | 2 | Not run | | |
 | `PLT-UAT05` Non-admin cannot see all | 2 | Not run | | |
@@ -205,12 +205,12 @@ Do the steps in order. Each one is validated before the next starts.
 
 | Limitation | Impact | Planned fix |
 |---|---|---|
-| No function creates a tenant, company, login or membership. Done by hand with `service_role` | Setup is manual | Stage 1 (setup), Stage 4 (logins) |
+| Tenant, company, first admin and membership are created by `private.create_tenant_setup` (Stage 1, run in the SQL editor, login by script). No screen and no function for further logins | Further logins are manual until Stage 4 | Stage 4 (logins) |
 | No function or screen gives or removes roles. A user sees only their own assignments | Role management is manual | Stages 2 and 3 |
 | Role, login and membership changes are not logged until Stage 2b | Early changes cannot be recovered | Stage 2b |
 | Automatic removal after the last working day is not built | Access of leavers ends only when an administrator removes the member | Later (`PLT-D14`, part D, `EMP` or `LCY`) |
 | Every login starts with a temporary password handed over by a person. No multi-factor sign-in (`PLT-D13`) | Higher risk for administrator accounts | Revisit before production |
-| One login belongs to one tenant (`PLT-D12`) | No tenant switcher | Revisit before a second tenant is real |
+| One login belongs to one tenant (`PLT-D12`), also enforced by `private.create_tenant_setup`. Testing in several tenants needs one login per tenant (for example `name+1@gmail.com`) | No tenant switcher | Revisit before a second tenant is real, or earlier if you want one login across test tenants |
 | ORG reads are open to every tenant member (`PLT-D10`) | ORG cannot hold sensitive data. The scope selector only narrows the screen | Each later module governs its own reads |
 | A company administrator who removes a member removes their access in other companies too (`PLT-D15`) | Possible loss of access elsewhere | Warning in the remove dialog (Stage 4) |
 | Administrators at Branch, Division or Department scope cannot manage members. Business Unit scope is decided but not built (`PLT-D18`) | Branch or Division administrators need a company or Business Unit administrator | Business Unit: `PLT-T019`. Others: revisit in `EMP` |
