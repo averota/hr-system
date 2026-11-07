@@ -11,12 +11,15 @@ import {
   type AllocationAction,
 } from "./AllocationActionDialog";
 import { selectClassName } from "./AsyncSelect";
+import { RowLimitWarning } from "./RowLimitWarning";
 
 interface HeadcountGridProps {
   companyId: number;
   allocations: PositionAllocation[];
   levels: HierarchyLevel[];
   locale: Locale;
+  /** True when the allocations request hit the row limit, so the list may be incomplete. */
+  limitReached: boolean;
 }
 
 interface FilterOption {
@@ -40,7 +43,13 @@ function uniqueOptions(items: FilterOption[], collator: Intl.Collator): FilterOp
  * The parent passes only the selected company's rows.
  * Give it a `key` that includes the company id so the filters reset on company change.
  */
-export function HeadcountGrid({ companyId, allocations, levels, locale }: HeadcountGridProps) {
+export function HeadcountGrid({
+  companyId,
+  allocations,
+  levels,
+  locale,
+  limitReached,
+}: HeadcountGridProps) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [orgUnitId, setOrgUnitId] = useState("");
@@ -166,6 +175,8 @@ export function HeadcountGrid({ companyId, allocations, levels, locale }: Headco
           allocation and starts a new one on the date you pick.
         </p>
       </div>
+
+      {limitReached && <RowLimitWarning what="allocations" />}
 
       {notice && (
         <p

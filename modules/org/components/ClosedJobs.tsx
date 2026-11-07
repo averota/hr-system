@@ -8,6 +8,7 @@ import { fetchClosedJobs } from "@/modules/org/queries";
 import type { ClosedJobRow, UnitRow } from "@/modules/org/types";
 import { selectClassName } from "./AsyncSelect";
 import { JobDialog } from "./JobDialog";
+import { RowLimitWarning } from "./RowLimitWarning";
 
 interface ClosedJobsProps {
   companyId: number;
@@ -28,6 +29,7 @@ type RecreateState =
  */
 export function ClosedJobs({ companyId, locale, departments }: ClosedJobsProps) {
   const [rows, setRows] = useState<ClosedJobRow[] | null>(null);
+  const [limitReached, setLimitReached] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [departmentId, setDepartmentId] = useState("");
@@ -39,7 +41,8 @@ export function ClosedJobs({ companyId, locale, departments }: ClosedJobsProps) 
     fetchClosedJobs(companyId)
       .then((data) => {
         if (cancelled) return;
-        setRows(data);
+        setRows(data.rows);
+        setLimitReached(data.limitReached);
         setLoadError(null);
       })
       .catch((e: unknown) => {
@@ -108,6 +111,8 @@ export function ClosedJobs({ companyId, locale, departments }: ClosedJobsProps) 
           first.
         </p>
       </div>
+
+      {limitReached && <RowLimitWarning what="closed job positions" />}
 
       {notice && (
         <p

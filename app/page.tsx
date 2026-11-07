@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/lib/supabase/database.types";
 import { OrgConfigView } from "@/modules/org/components/OrgConfigView";
+import { isRowLimitReached } from "@/modules/org/limits";
 import type {
   CompanyLevelRule,
   HierarchyLevel,
@@ -226,6 +227,8 @@ async function OrgConfigLoader() {
       orgUnits={toUnitRows(orgUnitsRes.data)}
       posUnits={toUnitRows(posUnitsRes.data)}
       allocations={toAllocations(allocationsRes.data)}
+      // Counts the raw rows, before rows with empty key columns are skipped.
+      allocationsLimitReached={isRowLimitReached(allocationsRes.data?.length ?? 0)}
     />
   );
 }

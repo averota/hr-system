@@ -6,6 +6,7 @@ import { displayName, type Locale } from "@/lib/i18n";
 import { fetchClosedAllocations } from "@/modules/org/queries";
 import type { ClosedAllocationRow, HierarchyLevel } from "@/modules/org/types";
 import { selectClassName } from "./AsyncSelect";
+import { RowLimitWarning } from "./RowLimitWarning";
 
 interface ClosedAllocationsProps {
   companyId: number;
@@ -31,6 +32,7 @@ function uniqueOptions(items: FilterOption[], collator: Intl.Collator): FilterOp
  */
 export function ClosedAllocations({ companyId, levels, locale }: ClosedAllocationsProps) {
   const [rows, setRows] = useState<ClosedAllocationRow[] | null>(null);
+  const [limitReached, setLimitReached] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [orgUnitId, setOrgUnitId] = useState("");
@@ -41,7 +43,8 @@ export function ClosedAllocations({ companyId, levels, locale }: ClosedAllocatio
     fetchClosedAllocations(companyId)
       .then((data) => {
         if (cancelled) return;
-        setRows(data);
+        setRows(data.rows);
+        setLimitReached(data.limitReached);
         setLoadError(null);
       })
       .catch((e: unknown) => {
@@ -127,6 +130,8 @@ export function ClosedAllocations({ companyId, levels, locale }: ClosedAllocatio
           closed first.
         </p>
       </div>
+
+      {limitReached && <RowLimitWarning what="closed allocations" />}
 
       {loadError ? (
         <p className="m-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{loadError}</p>

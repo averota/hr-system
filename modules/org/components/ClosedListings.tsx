@@ -8,6 +8,7 @@ import { fetchClosedListings, fetchListings } from "@/modules/org/queries";
 import type { ClosedListingRow, ListingRow, UnitRow } from "@/modules/org/types";
 import { selectClassName } from "./AsyncSelect";
 import { ListingDialog } from "./ListingDialog";
+import { RowLimitWarning } from "./RowLimitWarning";
 
 interface ClosedListingsProps {
   companyId: number;
@@ -35,6 +36,7 @@ interface OpenRecreate {
  */
 export function ClosedListings({ companyId, locale, orgUnits, departments }: ClosedListingsProps) {
   const [rows, setRows] = useState<ClosedListingRow[] | null>(null);
+  const [limitReached, setLimitReached] = useState(false);
   const [openListings, setOpenListings] = useState<ListingRow[] | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [recreate, setRecreate] = useState<OpenRecreate | null>(null);
@@ -48,8 +50,9 @@ export function ClosedListings({ companyId, locale, orgUnits, departments }: Clo
     Promise.all([fetchClosedListings(companyId), fetchListings(companyId)])
       .then(([data, open]) => {
         if (cancelled) return;
-        setRows(data);
-        setOpenListings(open);
+        setRows(data.rows);
+        setLimitReached(data.limitReached || open.limitReached);
+        setOpenListings(open.rows);
         setLoadError(null);
       })
       .catch((e: unknown) => {
@@ -133,6 +136,8 @@ export function ClosedListings({ companyId, locale, orgUnits, departments }: Clo
           first.
         </p>
       </div>
+
+      {limitReached && <RowLimitWarning what="Department listings" />}
 
       {notice && (
         <p

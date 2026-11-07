@@ -14,6 +14,7 @@ import type {
   UnitRow,
 } from "@/modules/org/types";
 import { ListingDialog, type ListingAction } from "./ListingDialog";
+import { RowLimitWarning } from "./RowLimitWarning";
 
 interface DepartmentListingsProps {
   companyId: number;
@@ -48,6 +49,7 @@ export function DepartmentListings({
 }: DepartmentListingsProps) {
   const router = useRouter();
   const [listings, setListings] = useState<ListingRow[] | null>(null);
+  const [limitReached, setLimitReached] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [dialog, setDialog] = useState<OpenDialog | null>(null);
@@ -56,9 +58,10 @@ export function DepartmentListings({
   useEffect(() => {
     let cancelled = false;
     fetchListings(companyId)
-      .then((rows) => {
+      .then((result) => {
         if (cancelled) return;
-        setListings(rows);
+        setListings(result.rows);
+        setLimitReached(result.limitReached);
         setLoadError(null);
       })
       .catch((e: unknown) => {
@@ -153,6 +156,8 @@ export function DepartmentListings({
           {notice}
         </p>
       )}
+
+      {limitReached && <RowLimitWarning what="Department listings" />}
 
       {orgUnits.length === 0 ? (
         <p className="m-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">

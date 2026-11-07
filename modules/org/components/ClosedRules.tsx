@@ -6,6 +6,7 @@ import { displayName, type Locale } from "@/lib/i18n";
 import { ROOT_LABEL } from "@/modules/org/labels";
 import { fetchClosedRules } from "@/modules/org/queries";
 import type { ClosedRuleRow, TreeKind } from "@/modules/org/types";
+import { RowLimitWarning } from "./RowLimitWarning";
 
 interface ClosedRulesProps {
   companyId: number;
@@ -23,6 +24,7 @@ const TREES: { tree: TreeKind; title: string }[] = [
  */
 export function ClosedRules({ companyId, locale }: ClosedRulesProps) {
   const [rows, setRows] = useState<ClosedRuleRow[] | null>(null);
+  const [limitReached, setLimitReached] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -30,7 +32,8 @@ export function ClosedRules({ companyId, locale }: ClosedRulesProps) {
     fetchClosedRules(companyId)
       .then((data) => {
         if (cancelled) return;
-        setRows(data);
+        setRows(data.rows);
+        setLimitReached(data.limitReached);
         setLoadError(null);
       })
       .catch((e: unknown) => {
@@ -50,6 +53,8 @@ export function ClosedRules({ companyId, locale }: ClosedRulesProps) {
           first.
         </p>
       </div>
+
+      {limitReached && <RowLimitWarning what="closed rules" className="" />}
 
       {loadError ? (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{loadError}</p>

@@ -9,6 +9,7 @@ import { PERM_JOB_WRITE, usePermissions } from "@/modules/org/permissions";
 import type { JobRow, PositionAllocation, UnitRow } from "@/modules/org/types";
 import { selectClassName } from "./AsyncSelect";
 import { JobDialog, type JobAction } from "./JobDialog";
+import { RowLimitWarning } from "./RowLimitWarning";
 
 interface JobCatalogProps {
   companyId: number;
@@ -32,6 +33,7 @@ interface OpenDialog {
 export function JobCatalog({ companyId, departments, allocations, locale }: JobCatalogProps) {
   const router = useRouter();
   const [jobs, setJobs] = useState<JobRow[] | null>(null);
+  const [limitReached, setLimitReached] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [departmentFilter, setDepartmentFilter] = useState("");
@@ -42,9 +44,10 @@ export function JobCatalog({ companyId, departments, allocations, locale }: JobC
   useEffect(() => {
     let cancelled = false;
     fetchJobs(companyId)
-      .then((rows) => {
+      .then((result) => {
         if (cancelled) return;
-        setJobs(rows);
+        setJobs(result.rows);
+        setLimitReached(result.limitReached);
         setLoadError(null);
       })
       .catch((e: unknown) => {
@@ -139,6 +142,8 @@ export function JobCatalog({ companyId, departments, allocations, locale }: JobC
           {notice}
         </p>
       )}
+
+      {limitReached && <RowLimitWarning what="job positions" />}
 
       {departments.length === 0 ? (
         <p className="m-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">

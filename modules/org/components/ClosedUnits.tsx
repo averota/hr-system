@@ -21,6 +21,7 @@ import type {
 } from "@/modules/org/types";
 import { childLevelRules, departmentIdOf } from "@/modules/org/unitTree";
 import { selectClassName } from "./AsyncSelect";
+import { RowLimitWarning } from "./RowLimitWarning";
 import { UnitActionDialog } from "./UnitActionDialog";
 
 interface ClosedUnitsProps {
@@ -74,6 +75,7 @@ export function ClosedUnits({
 }: ClosedUnitsProps) {
   const router = useRouter();
   const [rows, setRows] = useState<ClosedUnitRow[] | null>(null);
+  const [limitReached, setLimitReached] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [dialog, setDialog] = useState<OpenRecreate | null>(null);
@@ -84,7 +86,8 @@ export function ClosedUnits({
     fetchClosedUnits(tree, companyId)
       .then((data) => {
         if (cancelled) return;
-        setRows(data);
+        setRows(data.rows);
+        setLimitReached(data.limitReached);
         setLoadError(null);
       })
       .catch((e: unknown) => {
@@ -169,6 +172,8 @@ export function ClosedUnits({
         <h2 className="text-base font-semibold text-zinc-900">{copy.title}</h2>
         <p className="mt-0.5 text-sm text-zinc-600">{copy.description}</p>
       </div>
+
+      {limitReached && <RowLimitWarning what="closed units" />}
 
       {notice && (
         <p

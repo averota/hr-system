@@ -15,6 +15,13 @@ import type {
   TreeKind,
   UnitOption,
 } from "@/modules/org/types";
+import { isRowLimitReached } from "@/modules/org/limits";
+
+/** Rows of a list read, plus whether the request hit the row limit (the list may be cut off). */
+export interface LimitedRows<T> {
+  rows: T[];
+  limitReached: boolean;
+}
 
 // Largest value the database integer column accepts.
 export const MAX_HEADCOUNT = 2147483647;
@@ -314,7 +321,7 @@ export async function reorgUnit(
 // ---------------------------------------------------------------
 
 /** Open job positions of a company, all Departments. */
-export async function fetchJobs(companyId: number): Promise<JobRow[]> {
+export async function fetchJobs(companyId: number): Promise<LimitedRows<JobRow>> {
   const { data, error } = await createClient()
     .from("job_positions_current")
     .select("*")
@@ -342,11 +349,11 @@ export async function fetchJobs(companyId: number): Promise<JobRow[]> {
       valid_from: r.valid_from,
     });
   }
-  return rows;
+  return { rows, limitReached: isRowLimitReached((data ?? []).length) };
 }
 
 /** Open Department listings of a company, all org units. */
-export async function fetchListings(companyId: number): Promise<ListingRow[]> {
+export async function fetchListings(companyId: number): Promise<LimitedRows<ListingRow>> {
   const { data, error } = await createClient()
     .from("org_unit_departments_current")
     .select("*")
@@ -372,7 +379,7 @@ export async function fetchListings(companyId: number): Promise<ListingRow[]> {
       valid_from: r.valid_from,
     });
   }
-  return rows;
+  return { rows, limitReached: isRowLimitReached((data ?? []).length) };
 }
 
 /** Creates a job position in a Department. Needs pos.job.write at the Department. */
@@ -499,7 +506,9 @@ export async function disableLevelRule(
 // ---------------------------------------------------------------
 
 /** Closed level rules of a company, both trees. */
-export async function fetchClosedRules(companyId: number): Promise<ClosedRuleRow[]> {
+export async function fetchClosedRules(
+  companyId: number
+): Promise<LimitedRows<ClosedRuleRow>> {
   const { data, error } = await createClient()
     .from("company_level_rules_closed")
     .select("*")
@@ -537,7 +546,7 @@ export async function fetchClosedRules(companyId: number): Promise<ClosedRuleRow
       valid_to: r.valid_to,
     });
   }
-  return rows;
+  return { rows, limitReached: isRowLimitReached((data ?? []).length) };
 }
 
 interface ClosedUnitRaw {
@@ -560,7 +569,7 @@ interface ClosedUnitRaw {
 export async function fetchClosedUnits(
   tree: TreeKind,
   companyId: number
-): Promise<ClosedUnitRow[]> {
+): Promise<LimitedRows<ClosedUnitRow>> {
   const supabase = createClient();
   const { data, error } =
     tree === "org"
@@ -608,13 +617,13 @@ export async function fetchClosedUnits(
       valid_to: r.valid_to,
     });
   }
-  return rows;
+  return { rows, limitReached: isRowLimitReached((data ?? []).length) };
 }
 
 /** Closed allocations of a company (headcount history). */
 export async function fetchClosedAllocations(
   companyId: number
-): Promise<ClosedAllocationRow[]> {
+): Promise<LimitedRows<ClosedAllocationRow>> {
   const { data, error } = await createClient()
     .from("position_allocations_closed")
     .select("*")
@@ -664,11 +673,13 @@ export async function fetchClosedAllocations(
       valid_to: r.valid_to,
     });
   }
-  return rows;
+  return { rows, limitReached: isRowLimitReached((data ?? []).length) };
 }
 
 /** Closed job positions of a company. */
-export async function fetchClosedJobs(companyId: number): Promise<ClosedJobRow[]> {
+export async function fetchClosedJobs(
+  companyId: number
+): Promise<LimitedRows<ClosedJobRow>> {
   const { data, error } = await createClient()
     .from("job_positions_closed")
     .select("*")
@@ -702,11 +713,13 @@ export async function fetchClosedJobs(companyId: number): Promise<ClosedJobRow[]
       valid_to: r.valid_to,
     });
   }
-  return rows;
+  return { rows, limitReached: isRowLimitReached((data ?? []).length) };
 }
 
 /** Closed Department listings of a company. */
-export async function fetchClosedListings(companyId: number): Promise<ClosedListingRow[]> {
+export async function fetchClosedListings(
+  companyId: number
+): Promise<LimitedRows<ClosedListingRow>> {
   const { data, error } = await createClient()
     .from("org_unit_departments_closed")
     .select("*")
@@ -742,5 +755,5 @@ export async function fetchClosedListings(companyId: number): Promise<ClosedList
       valid_to: r.valid_to,
     });
   }
-  return rows;
+  return { rows, limitReached: isRowLimitReached((data ?? []).length) };
 }

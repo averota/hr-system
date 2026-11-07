@@ -7,6 +7,7 @@ import { displayName, type Locale } from "@/lib/i18n";
 import { fetchListingsAsOf, fetchUnitsAsOf } from "@/modules/org/queriesHistory";
 import { useAsOfLoad } from "@/modules/org/useAsOfLoad";
 import { AsOfDatePicker } from "./AsOfDatePicker";
+import { RowLimitWarning } from "./RowLimitWarning";
 
 interface AsOfListingsProps {
   companyId: number;
@@ -33,7 +34,9 @@ export function AsOfListings({ companyId, locale }: AsOfListingsProps) {
 
   const rows = useMemo(() => {
     if (!data) return [];
-    const [listings, orgUnits, posUnits] = data;
+    const listings = data[0].rows;
+    const orgUnits = data[1].rows;
+    const posUnits = data[2].rows;
 
     const departmentName = new Map(
       posUnits.map((u) => [u.unit_id, displayName(locale, u.name_en, u.name_km)])
@@ -55,6 +58,9 @@ export function AsOfListings({ companyId, locale }: AsOfListingsProps) {
       }));
   }, [data, locale]);
 
+  // Any of the three reads may be cut off at the row limit.
+  const limitReached = data !== null && data.some((part) => part.limitReached);
+
   return (
     <div className="space-y-4">
       <AsOfDatePicker
@@ -74,6 +80,7 @@ export function AsOfListings({ companyId, locale }: AsOfListingsProps) {
         </p>
       ) : (
         <div className="rounded-lg border border-zinc-200 bg-white p-4">
+          {limitReached && <RowLimitWarning what="rows" className="mb-3" />}
           <h2 className="mb-3 text-sm font-semibold text-zinc-900">
             Department listings as of {asOf}
           </h2>

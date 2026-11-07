@@ -10,6 +10,8 @@ import type {
   UnitMoveRow,
   UnitRow,
 } from "@/modules/org/types";
+import { isRowLimitReached } from "@/modules/org/limits";
+import type { LimitedRows } from "@/modules/org/queries";
 
 /**
  * Units of one tree as they stood on a date ("YYYY-MM-DD").
@@ -19,7 +21,7 @@ export async function fetchUnitsAsOf(
   tree: TreeKind,
   companyId: number,
   asOf: string
-): Promise<UnitRow[]> {
+): Promise<LimitedRows<UnitRow>> {
   const supabase = createClient();
   const args = { p_company_id: companyId, p_as_of: asOf };
   const { data, error } =
@@ -28,7 +30,7 @@ export async function fetchUnitsAsOf(
       : await supabase.rpc("pos_units_as_of", args);
   if (error) throw new Error(error.message);
 
-  return (data ?? []).map((r) => ({
+  const rows = (data ?? []).map((r) => ({
     unit_id: r.unit_id,
     company_id: companyId,
     level_id: r.level_id,
@@ -42,20 +44,21 @@ export async function fetchUnitsAsOf(
     parent_unit_id: r.parent_unit_id as number | null,
     valid_from: r.valid_from,
   }));
+  return { rows, limitReached: isRowLimitReached((data ?? []).length) };
 }
 
 /** Allocations (approved headcount) as they stood on a date. */
 export async function fetchAllocationsAsOf(
   companyId: number,
   asOf: string
-): Promise<AsOfAllocationRow[]> {
+): Promise<LimitedRows<AsOfAllocationRow>> {
   const { data, error } = await createClient().rpc("position_allocations_as_of", {
     p_company_id: companyId,
     p_as_of: asOf,
   });
   if (error) throw new Error(error.message);
 
-  return (data ?? []).map((r) => ({
+  const rows = (data ?? []).map((r) => ({
     allocation_id: r.allocation_id,
     company_id: r.company_id,
     org_unit_id: r.org_unit_id,
@@ -76,20 +79,21 @@ export async function fetchAllocationsAsOf(
     // The generated type says string, but an open allocation has no end date.
     valid_to: r.valid_to as string | null,
   }));
+  return { rows, limitReached: isRowLimitReached((data ?? []).length) };
 }
 
 /** Department listings as they stood on a date. */
 export async function fetchListingsAsOf(
   companyId: number,
   asOf: string
-): Promise<AsOfListingRow[]> {
+): Promise<LimitedRows<AsOfListingRow>> {
   const { data, error } = await createClient().rpc("org_unit_departments_as_of", {
     p_company_id: companyId,
     p_as_of: asOf,
   });
   if (error) throw new Error(error.message);
 
-  return (data ?? []).map((r) => ({
+  const rows = (data ?? []).map((r) => ({
     eligibility_id: r.eligibility_id,
     company_id: r.company_id,
     org_unit_id: r.org_unit_id,
@@ -97,6 +101,7 @@ export async function fetchListingsAsOf(
     valid_from: r.valid_from,
     valid_to: r.valid_to as string | null,
   }));
+  return { rows, limitReached: isRowLimitReached((data ?? []).length) };
 }
 
 interface UnitMoveRaw {
@@ -126,7 +131,7 @@ interface UnitMoveRaw {
 export async function fetchUnitMoves(
   tree: TreeKind,
   companyId: number
-): Promise<UnitMoveRow[]> {
+): Promise<LimitedRows<UnitMoveRow>> {
   const supabase = createClient();
   const { data, error } =
     tree === "org"
@@ -179,5 +184,5 @@ export async function fetchUnitMoves(
       valid_to: r.valid_to,
     });
   }
-  return rows;
+  return { rows, limitReached: isRowLimitReached((data ?? []).length) };
 }

@@ -6,6 +6,7 @@ import { displayName, type Locale } from "@/lib/i18n";
 import { fetchUnitMoves } from "@/modules/org/queriesHistory";
 import type { TreeKind } from "@/modules/org/types";
 import { useAsOfLoad } from "@/modules/org/useAsOfLoad";
+import { RowLimitWarning } from "./RowLimitWarning";
 
 interface UnitMovesProps {
   tree: TreeKind;
@@ -21,7 +22,7 @@ export function UnitMoves({ tree, companyId, locale }: UnitMovesProps) {
   const { data, error, isLoading } = useAsOfLoad(load);
 
   const rows = useMemo(() => {
-    const all = data ?? [];
+    const all = data?.rows ?? [];
     const q = search.trim().toLowerCase();
     if (!q) return all;
     return all.filter((r) =>
@@ -44,6 +45,7 @@ export function UnitMoves({ tree, companyId, locale }: UnitMovesProps) {
 
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-4">
+      {data?.limitReached && <RowLimitWarning what="past parent links" className="mb-3" />}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-zinc-900">
@@ -66,7 +68,7 @@ export function UnitMoves({ tree, companyId, locale }: UnitMovesProps) {
 
       {rows.length === 0 ? (
         <p className="text-sm text-zinc-600">
-          {(data ?? []).length === 0
+          {(data?.rows ?? []).length === 0
             ? "No unit has been moved yet."
             : "No moves match the search."}
         </p>

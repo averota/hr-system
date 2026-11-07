@@ -9,6 +9,7 @@ import type { TreeKind } from "@/modules/org/types";
 import { useAsOfLoad } from "@/modules/org/useAsOfLoad";
 import { AsOfDatePicker } from "./AsOfDatePicker";
 import { OrgTreeExplorer } from "./OrgTreeExplorer";
+import { RowLimitWarning } from "./RowLimitWarning";
 
 interface AsOfUnitsProps {
   tree: TreeKind;
@@ -46,14 +47,17 @@ export function AsOfUnits({ tree, companyId, locale }: AsOfUnitsProps) {
           {error}
         </p>
       ) : (
-        <OrgTreeExplorer
-          key={`${tree}-${companyId}-${asOf}`}
-          title={`${title} as of ${asOf}`}
-          description="Read-only view of the units valid on the chosen date."
-          emptyText="No units existed on this date."
-          units={data ?? []}
-          locale={locale}
-        />
+        <>
+          {data?.limitReached && <RowLimitWarning what="units" className="" />}
+          <OrgTreeExplorer
+            key={`${tree}-${companyId}-${asOf}`}
+            title={`${title} as of ${asOf}`}
+            description="Read-only view of the units valid on the chosen date."
+            emptyText="No units existed on this date."
+            units={data?.rows ?? []}
+            locale={locale}
+          />
+        </>
       )}
     </div>
   );

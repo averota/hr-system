@@ -7,6 +7,7 @@ import { displayName, type Locale } from "@/lib/i18n";
 import { fetchAllocationsAsOf } from "@/modules/org/queriesHistory";
 import { useAsOfLoad } from "@/modules/org/useAsOfLoad";
 import { AsOfDatePicker } from "./AsOfDatePicker";
+import { RowLimitWarning } from "./RowLimitWarning";
 
 interface AsOfHeadcountProps {
   companyId: number;
@@ -25,7 +26,7 @@ export function AsOfHeadcount({ companyId, locale }: AsOfHeadcountProps) {
   const { data, error, isLoading } = useAsOfLoad(load);
 
   const rows = useMemo(() => {
-    const all = data ?? [];
+    const all = data?.rows ?? [];
     const q = search.trim().toLowerCase();
     if (!q) return all;
     return all.filter((r) =>
@@ -65,6 +66,7 @@ export function AsOfHeadcount({ companyId, locale }: AsOfHeadcountProps) {
         </p>
       ) : (
         <div className="rounded-lg border border-zinc-200 bg-white p-4">
+          {data?.limitReached && <RowLimitWarning what="allocations" className="mb-3" />}
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-sm font-semibold text-zinc-900">
               Headcount as of {asOf}
@@ -81,7 +83,7 @@ export function AsOfHeadcount({ companyId, locale }: AsOfHeadcountProps) {
 
           {rows.length === 0 ? (
             <p className="text-sm text-zinc-600">
-              {(data ?? []).length === 0
+              {(data?.rows ?? []).length === 0
                 ? "No allocations existed on this date."
                 : "No allocations match the search."}
             </p>
@@ -125,7 +127,7 @@ export function AsOfHeadcount({ companyId, locale }: AsOfHeadcountProps) {
                 <tfoot>
                   <tr>
                     <td colSpan={4} className="pt-2 pr-3 text-xs text-zinc-500">
-                      Showing {rows.length} of {(data ?? []).length}
+                      Showing {rows.length} of {(data?.rows ?? []).length}
                     </td>
                     <td className="pt-2 pr-3 text-right font-semibold tabular-nums">
                       {total}

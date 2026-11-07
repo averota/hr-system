@@ -67,6 +67,8 @@ interface OrgConfigViewProps {
   orgUnits: UnitRow[];
   posUnits: UnitRow[];
   allocations: PositionAllocation[];
+  /** True when the allocations request returned the maximum number of rows (may be cut off). */
+  allocationsLimitReached: boolean;
 }
 
 export function OrgConfigView({
@@ -77,6 +79,7 @@ export function OrgConfigView({
   orgUnits,
   posUnits,
   allocations,
+  allocationsLimitReached,
 }: OrgConfigViewProps) {
   const router = useRouter();
   const [locale, setLocale] = useState<Locale>("en");
@@ -412,6 +415,7 @@ export function OrgConfigView({
                   allocations={companyAllocations}
                   levels={levels}
                   locale={locale}
+                  limitReached={allocationsLimitReached}
                 />
               ))}
           </>
