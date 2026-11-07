@@ -4,13 +4,13 @@ Last updated: 2026-11-07
 Purpose: How the HRIS frontend is organised once all modules exist: the folder tree, what goes where, the rules between folders, the shared shell (navigation, work scope, language), and the small stage that moves ORG onto it. Written so the structure is decided once, before the second module adds screens.
 Read together with: `HRIS_PROJECT_OVERVIEW.md` (section 3 technical setup, 5.4 access model, 5.6 frontend notes), `HRIS_MODULE_REGISTER.md` (module codes), `HRIS_NAMING_CONVENTION.md`, `HRIS_ORG_FRONTEND_REFERENCE.md`, `HRIS_PLT_BLUEPRINT.md`
 
-Status: **Decided on 2026-11-07** (`FND-D01` to `FND-D08`, section 7). One question is open (`FND-Q09`). This document is also the proposal for `HRIS_NAMING_CONVENTION.md` section 5 (frontend code naming, still undefined there). It is recorded in the convention in Foundation step F6.
+Status: **Decided on 2026-11-07** (`FND-D01` to `FND-D09`, section 7). Partly built: the entry flow (landing page, login, `/org`) passed on 2026-11-07, see section 8.1. One question is open (`FND-Q09`). This document is also the proposal for `HRIS_NAMING_CONVENTION.md` section 5 (frontend code naming, still undefined there). It is recorded in the convention in Foundation step F6.
 
 Origin labels: **Existing** (how it is today), **Your decision** and **Adopted** (a recommendation you accepted), **Assumption** (not confirmed yet).
 
 **Not yet checked, before any code is written:**
 - `AGENTS.md` says this Next.js (16.4.5) differs from what Claude knows and the guides in `node_modules/next/dist/docs/` must be read first. Route groups, nested layouts, cookies and `proxy.ts` behaviour are checked there in step F0, not assumed here.
-- `Modal.tsx`, `AsyncSelect.tsx` and `OrgConfigView.tsx` were not reviewed. Which pieces are really free of ORG imports is confirmed when they are moved.
+- `OrgConfigView.tsx`, `queries.ts`, `permissions.ts` and `limits.ts` were reviewed on 2026-11-07 (entry flow). `Modal.tsx` and `AsyncSelect.tsx` were not. Which pieces are really free of ORG imports is confirmed when they are moved. Found in the review: `OrgConfigView.tsx` takes eight props from its page, renders its own header and calls the browser client for sign out; `queries.ts` and `permissions.ts` are browser-only (`permissions.ts` is marked `"use client"`), so the server page needed its own loaders.
 - `HRIS_NAMING_CONVENTION.md` was reviewed on 2026-11-07: documents live in `docs/` (confirmed, not optional), migrations in `supabase/migrations/`, tests in `supabase/tests/`, decision IDs are `<MODULE>-D01` (this document uses `FND` for the foundation). Its section 5 (frontend naming) is not defined, see above.
 
 ---
@@ -20,10 +20,10 @@ Origin labels: **Existing** (how it is today), **Your decision** and **Adopted**
 | Item | Today |
 |---|---|
 | Stack | Next.js 16.4.5, React 19, Tailwind 4 (`@tailwindcss/turbopack`), `lucide-react` for icons, no UI library |
-| Routes | `app/page.tsx` is the ORG page. `app/login/page.tsx` is the sign-in. `proxy.ts` refreshes the session and redirects |
+| Routes | `app/page.tsx` is the public landing page (`/`). `app/(auth)/login` is the sign-in. `app/(app)/org/page.tsx` is the ORG page. Both route groups exist, `app/(app)/layout.tsx` does not yet. `proxy.ts` refreshes the session, keeps `/` and `/login` public, sends signed-out users to `/login` and signed-in users on `/login` to `/org` (`DEFAULT_MODULE_PATH` in `lib/supabase/post-login.ts`). Updated 2026-11-07 |
 | Shell | None. The header (company selector, EN / ខ្មែរ switch, sign out) and the tabs sit inside `modules/org/components/OrgConfigView.tsx` |
 | Shared code | None folder-wise. Generic pieces (`Modal`, `AsyncSelect`, `RowLimitWarning`, `AsOfDatePicker`, `limits.ts`, `permissions.ts`, `useAsOfLoad.ts`, the error mapping in `queries.ts`) are filed under `modules/org` |
-| Loading data | `app/page.tsx` loads every company's units, rules and allocations in one request and maps the nullable columns. Row limits therefore count all companies together |
+| Loading data | `app/(app)/org/page.tsx` checks the user (until the shell does) and calls `loadOrgPageData` in `modules/org/serverQueries.ts`, which loads every company's lists in parallel and maps the nullable columns. Row limits therefore count all companies together, and only allocations show a limit warning |
 | Loose ends | Root layout still says "Create Next App". `globals.css` sets `font-family: Arial`, which overrides the Geist font. Pages use fixed grey colours, not shared colour names |
 
 ---
@@ -48,11 +48,12 @@ hr-system/
 │   ├── layout.tsx                    root: <html>, fonts (Latin and Khmer), page title
 │   ├── globals.css                   Tailwind and the colour names (tokens)
 │   ├── favicon.ico
+│   ├── page.tsx                      public landing page at `/` with the Log in button (`FND-D09`)
 │   ├── (auth)/                       signed-out pages, no shell
-│   │   └── login/page.tsx
+│   │   ├── actions.ts                login and logout (server actions)
+│   │   └── login/                    layout.tsx, LoginForm.tsx, page.tsx
 │   ├── (app)/                        signed-in pages, wrapped by the shell
 │   │   ├── layout.tsx                loads user, scope, permissions, renders <AppShell>
-│   │   ├── page.tsx                  home (landing, links to the modules the user may use)
 │   │   ├── org/                      ORG   Organization structure (tabs in one page for now)
 │   │   ├── platform/                 PLT   Members, access, setup (one route per section)
 │   │   ├── employees/                EMP   Employee management
@@ -78,7 +79,7 @@ hr-system/
 │                                     HistoryToggle, AsOfDatePicker
 │
 ├── lib/                              SHARED LOGIC. No React screens, no module imports
-│   ├── supabase/                     client.ts, server.ts, env.ts, database.types.ts
+│   ├── supabase/                     client.ts, server.ts, env.ts, database.types.ts, post-login.ts, remember.ts
 │   ├── context/                      ScopeContext, LocaleContext (scope and language chosen once in the shell)
 │   ├── scope.ts                      selection rules: subtree, several companies, cookie read and check
 │   ├── hooks/                        useLoad (today useAsOfLoad)
@@ -107,7 +108,7 @@ hr-system/
 │
 ├── supabase/                         migrations/, tests/, dev seeds (Existing, `HRIS_NAMING_CONVENTION.md` section 3)
 ├── docs/                             the HRIS_*.md documents (Existing, `HRIS_NAMING_CONVENTION.md` section 2)
-├── proxy.ts                          session refresh and redirects (Existing)
+├── proxy.ts                          session refresh and redirects (Existing). `/` and `/login` are public
 ├── eslint.config.mjs                 also holds the import rules of section 4
 └── next.config.ts, tsconfig.json, package.json, AGENTS.md, README.md
 ```
@@ -215,7 +216,7 @@ The user chooses **where they work** once, in the topbar. The answers of 2026-11
 
 | Today | Goes to | When |
 |---|---|---|
-| Header of `OrgConfigView.tsx` (company selector, language switch, sign out) | `components/layout/` (`ScopeSelector`, `LanguageSwitch`, `UserMenu`) and `lib/context/` | Foundation Stage |
+| Header of `OrgConfigView.tsx` (company selector, language switch, sign out) | `components/layout/` (`ScopeSelector`, `LanguageSwitch`, `UserMenu`) and `lib/context/`. Proposed: sign out uses the server `logout` action in `app/(auth)/actions.ts`, which also clears the remember-me cookie | Foundation Stage |
 | `Modal.tsx` | `components/ui/Modal.tsx` | Foundation Stage |
 | `RowLimitWarning.tsx` | `components/ui/LimitWarning.tsx` | Foundation Stage |
 | `AsyncSelect.tsx` | `components/form/AsyncSelect.tsx` | Foundation Stage |
@@ -226,7 +227,7 @@ The user chooses **where they work** once, in the topbar. The answers of 2026-11
 | `useAsOfLoad.ts` | `lib/hooks/useLoad.ts` | Foundation Stage |
 | `checkPermissions`, `usePermissions` from `permissions.ts` | `lib/permissions.ts`. The `PERM_` codes stay in `modules/org/permissions.ts` | Foundation Stage |
 | `writeError`, `rpcWriteError` from `queries.ts` | `lib/errors.ts` | Foundation Stage |
-| Data loading and narrowing in `app/page.tsx` | `modules/org/loaders.ts`. `app/(app)/org/page.tsx` becomes a few lines and reads the selected scope | Foundation Stage |
+| Data loading and narrowing: today `modules/org/serverQueries.ts` (`loadOrgPageData`, moved out of `app/page.tsx` on 2026-11-07) | `modules/org/loaders.ts` (renamed). `app/(app)/org/page.tsx` becomes a few lines and reads the selected scope | Foundation Stage |
 | Everything else in `modules/org` (all `Closed*`, `AsOf*`, dialogs, `OrgTreeExplorer`, `unitTree.ts`, `labels.ts`, `types.ts`, queries) | stays | |
 
 ---
@@ -245,6 +246,7 @@ Answered on 2026-11-07. IDs follow `HRIS_NAMING_CONVENTION.md` (`<MODULE>-D..`, 
 | `FND-D06` | Work scope selector in the topbar, section 5.1: multi-select tree (Parent company, Business Unit, Branch, Division), a selection covers the unit and everything below, only the user's assigned access is offered and parents above it are hidden, several companies allowed for lists and reports while company-level setup screens need one company, last selection remembered in a cookie (first visit: everything accessible). Replaces the single company selector | Your decision (extends the recommendation) |
 | `FND-D07` | Tailwind and `lucide-react` only, colour names in `globals.css`, a separate Khmer font in the root layout | Adopted |
 | `FND-D08` | Left sidebar, collapsible, drawer on small screens | Adopted |
+| `FND-D09` | `/` is the public landing page (`app/page.tsx`, Log in button to `/login`). A signed-in user lands on `/org` (`DEFAULT_MODULE_PATH`). The signed-in home page `app/(app)/page.tsx` of the earlier tree is removed, because it would clash with `/`. A home across modules is revisited when a second module exists | Your decision (2026-11-07) |
 
 **Open**
 
@@ -269,3 +271,15 @@ Do after PLT Stage 1 (database only). Before PLT Stage 2 (first screens).
 | F6 | Record the result: folder tree, rules and file names into `HRIS_NAMING_CONVENTION.md` (section 5), `HRIS_PROJECT_OVERVIEW.md` (section 3), the ORG Status file list, the ORG Frontend Reference, and a Frontend Foundation row in the module register | Documents updated |
 
 Files needed from you for F1 to F4: `OrgConfigView.tsx`, `Modal.tsx`, `AsyncSelect.tsx`, `permissions.ts`, `queries.ts` (error mapping part), `app/login/page.tsx`, `proxy.ts`, `eslint.config.mjs`.
+
+### 8.1 Progress (2026-11-07)
+
+| Step | State | Note |
+|---|---|---|
+| F0 | No notes recorded | |
+| F1 | Partly done | Done: `(auth)` and `(app)` groups exist and login lives in `app/(auth)/login`. Not done or not checked: root layout cleanup (title, Khmer font, colour names) |
+| F2 | Not started | No shell yet (`app/(app)/layout.tsx` is missing) |
+| F3 | Partly done | Done: ORG page at `app/(app)/org/page.tsx`, data load moved into `modules/org/serverQueries.ts`, browser check passed (`PLT-T022` in `HRIS_PLT_STATUS.md`). Left: rename to `loaders.ts` and read the selected scope, remove the header from `OrgConfigView.tsx` |
+| F4 | Not started | The ORG reusable components step (`PLT-T023`, next) overlaps this step. The order of the two is settled when it starts |
+| F5 | Not started | |
+| F6 | Not started | |

@@ -4,11 +4,18 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/supabase/database.types";
 import { supabaseUrl, supabasePublishableKey } from "@/lib/supabase/env";
+import { DEFAULT_MODULE_PATH } from "@/lib/supabase/post-login";
+import {
+  applyRememberMe,
+  REMEMBER_COOKIE,
+  rememberCookieOptions,
+} from "@/lib/supabase/remember";
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   });
+  const remember = request.cookies.has(REMEMBER_COOKIE);
 
   const supabase = createServerClient<Database>(
     supabaseUrl,
@@ -26,8 +33,16 @@ export async function proxy(request: NextRequest) {
             request,
           });
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
+            supabaseResponse.cookies.set(
+              name,
+              value,
+              applyRememberMe(value, options, remember)
+            )
           );
+          // Keep the "remember me" window in step with the refreshed login.
+          if (remember) {
+            supabaseResponse.cookies.set(REMEMBER_COOKIE, "1", rememberCookieOptions);
+          }
         },
       },
     }
@@ -38,9 +53,12 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isLoginRoute = request.nextUrl.pathname.startsWith("/login");
+  const { pathname } = request.nextUrl;
+  const isLoginRoute = pathname.startsWith("/login");
+  // "/" is the public landing page.
+  const isPublicRoute = pathname === "/" || isLoginRoute;
 
-  if (!user && !isLoginRoute) {
+  if (!user && !isPublicRoute) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     return NextResponse.redirect(loginUrl);
@@ -48,7 +66,7 @@ export async function proxy(request: NextRequest) {
 
   if (user && isLoginRoute) {
     const homeUrl = request.nextUrl.clone();
-    homeUrl.pathname = "/";
+    homeUrl.pathname = DEFAULT_MODULE_PATH;
     return NextResponse.redirect(homeUrl);
   }
 

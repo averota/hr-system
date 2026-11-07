@@ -8,6 +8,7 @@
   visually until a screen switches to the names.
 */
 @theme {
+  --color-primary-700: #1d4ed8;
   --color-primary: #18181b;
   --color-primary-hover: #27272a;
   --color-surface: #ffffff;
