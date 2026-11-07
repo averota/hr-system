@@ -1,42 +1,45 @@
 // modules/org/components/HistoryToggle.tsx
 "use client";
 
-export type ViewMode = "current" | "closed" | "asof";
+export type ViewMode = "current" | "closed" | "asof" | "moves";
+
+const LABELS: Record<ViewMode, string> = {
+  current: "Current",
+  closed: "Closed (history)",
+  asof: "As of date",
+  moves: "Moves (reorg)",
+};
 
 interface HistoryToggleProps {
   mode: ViewMode;
   onChange: (mode: ViewMode) => void;
-  /** Offer the "As of date" option (only on tabs that support it). */
-  allowAsOf?: boolean;
+  /** Modes offered besides Current and Closed (history), in the order shown. */
+  extraModes?: ViewMode[];
 }
 
-/** Switch between current records, closed (history) records and an as-of date view on a tab. */
-export function HistoryToggle({ mode, onChange, allowAsOf = false }: HistoryToggleProps) {
+/** Switch between current records, closed records and the extra history views on a tab. */
+export function HistoryToggle({ mode, onChange, extraModes = [] }: HistoryToggleProps) {
   const base = "rounded px-2.5 py-1";
   const active = "bg-zinc-900 text-white";
   const idle = "text-zinc-700 hover:text-zinc-900";
 
-  const options: { id: ViewMode; label: string }[] = [
-    { id: "current", label: "Current" },
-    { id: "closed", label: "Closed (history)" },
-    ...(allowAsOf ? [{ id: "asof" as const, label: "As of date" }] : []),
-  ];
+  const options: ViewMode[] = ["current", "closed", ...extraModes];
 
   return (
     <div
       role="group"
-      aria-label="Show current records, closed records or a past date"
+      aria-label="Show current records, closed records or another history view"
       className="inline-flex rounded-md border border-zinc-300 bg-zinc-50 p-0.5 text-xs font-medium"
     >
-      {options.map((o) => (
+      {options.map((id) => (
         <button
-          key={o.id}
+          key={id}
           type="button"
-          aria-pressed={mode === o.id}
-          onClick={() => onChange(o.id)}
-          className={`${base} ${mode === o.id ? active : idle}`}
+          aria-pressed={mode === id}
+          onClick={() => onChange(id)}
+          className={`${base} ${mode === id ? active : idle}`}
         >
-          {o.label}
+          {LABELS[id]}
         </button>
       ))}
     </div>

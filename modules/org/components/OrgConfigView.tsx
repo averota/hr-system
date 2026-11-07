@@ -13,6 +13,8 @@ import type {
   UnitRow,
 } from "@/modules/org/types";
 import { AllocationForm } from "./AllocationForm";
+import { AsOfHeadcount } from "./AsOfHeadcount";
+import { AsOfListings } from "./AsOfListings";
 import { AsOfUnits } from "./AsOfUnits";
 import { ClosedAllocations } from "./ClosedAllocations";
 import { ClosedJobs } from "./ClosedJobs";
@@ -25,6 +27,7 @@ import { HierarchyConfig } from "./HierarchyConfig";
 import { HistoryToggle, type ViewMode } from "./HistoryToggle";
 import { JobCatalog } from "./JobCatalog";
 import { OrgTreeExplorer } from "./OrgTreeExplorer";
+import { UnitMoves } from "./UnitMoves";
 
 type TabId =
   | "config"
@@ -45,18 +48,16 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "headcount", label: "Headcount" },
 ];
 
-// Tabs that can switch to a closed (history) view.
-const HISTORY_TABS: TabId[] = [
-  "config",
-  "org-tree",
-  "pos-tree",
-  "jobs",
-  "listings",
-  "headcount",
-];
-
-// Tabs that can also show an as-of date view (ORG Stage 9k).
-const AS_OF_TABS: TabId[] = ["org-tree", "pos-tree"];
+// History views per tab. Every listed tab has Current and Closed (history).
+// The extra modes are the ORG Stage 9k views (as of date, reorg moves).
+const HISTORY_MODES: Partial<Record<TabId, ViewMode[]>> = {
+  config: [],
+  "org-tree": ["asof", "moves"],
+  "pos-tree": ["asof", "moves"],
+  jobs: [],
+  listings: ["asof"],
+  headcount: ["asof"],
+};
 
 interface OrgConfigViewProps {
   userEmail: string;
@@ -107,6 +108,8 @@ export function OrgConfigView({
   const companyAllocations = allocations.filter(
     (a) => a.company_id === selectedCompanyId
   );
+
+  const extraModes = HISTORY_MODES[activeTab];
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -227,13 +230,9 @@ export function OrgConfigView({
           </div>
         ) : (
           <>
-            {HISTORY_TABS.includes(activeTab) && (
+            {extraModes !== undefined && (
               <div className="flex justify-end">
-                <HistoryToggle
-                  mode={mode}
-                  onChange={setMode}
-                  allowAsOf={AS_OF_TABS.includes(activeTab)}
-                />
+                <HistoryToggle mode={mode} onChange={setMode} extraModes={extraModes} />
               </div>
             )}
 
@@ -269,6 +268,13 @@ export function OrgConfigView({
                   companyId={selectedCompanyId}
                   locale={locale}
                 />
+              ) : mode === "moves" ? (
+                <UnitMoves
+                  key={`moves-org-${selectedCompanyId}`}
+                  tree="org"
+                  companyId={selectedCompanyId}
+                  locale={locale}
+                />
               ) : (
                 <OrgTreeExplorer
                   key={`org-${selectedCompanyId}`}
@@ -297,6 +303,13 @@ export function OrgConfigView({
               ) : mode === "asof" ? (
                 <AsOfUnits
                   key={`asof-pos-${selectedCompanyId}`}
+                  tree="pos"
+                  companyId={selectedCompanyId}
+                  locale={locale}
+                />
+              ) : mode === "moves" ? (
+                <UnitMoves
+                  key={`moves-pos-${selectedCompanyId}`}
                   tree="pos"
                   companyId={selectedCompanyId}
                   locale={locale}
@@ -342,6 +355,12 @@ export function OrgConfigView({
                   companyId={selectedCompanyId}
                   locale={locale}
                 />
+              ) : mode === "asof" ? (
+                <AsOfListings
+                  key={`asof-listings-${selectedCompanyId}`}
+                  companyId={selectedCompanyId}
+                  locale={locale}
+                />
               ) : (
                 <DepartmentListings
                   key={`listings-${selectedCompanyId}`}
@@ -369,6 +388,12 @@ export function OrgConfigView({
                   key={`closed-hc-${selectedCompanyId}`}
                   companyId={selectedCompanyId}
                   levels={levels}
+                  locale={locale}
+                />
+              ) : mode === "asof" ? (
+                <AsOfHeadcount
+                  key={`asof-hc-${selectedCompanyId}`}
+                  companyId={selectedCompanyId}
                   locale={locale}
                 />
               ) : (
