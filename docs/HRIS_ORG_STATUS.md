@@ -14,14 +14,14 @@ Module code: `ORG`. Stages are written "ORG Stage N". Migration headers that say
 
 | Item | Value |
 |---|---|
-| Phase now | P4-P5 (Stage 9k passed, Stage 9l next) |
-| Blueprint state | Written after the build began (not gated). Awaiting your approval. See Blueprint section 5. Not yet updated for 9k (`ORG-T019`) |
+| Phase now | P4-P5 (Stage 9l passed for units, jobs and listings) |
+| Blueprint state | Written after the build began (not gated). Awaiting your approval. See Blueprint section 5. Updated for 9k and 9l on 2026-11-07 |
 | Current Stage | None in progress |
-| Last Stage passed | ORG Stage 9k: history reads (`028`, `tsc` and browser checks passed on 2026-11-07) |
-| Next | ORG Stage 9l (Re-create button on history rows, frontend only). First agree the behaviour and send the files (`ORG-T011`, `ORG-T012`) |
-| Blocking | 9l needs your answers and the files in section 7 |
+| Last Stage passed | ORG Stage 9l: Re-create on closed units, jobs and Department listings (browser checks passed on 2026-11-07). Before it, ORG Stage 9k (`028`) |
+| Next | Update `HRIS_ORG_FRONTEND_REFERENCE.md` (`ORG-T009`, waits for `queriesHistory.ts`), then the gap fixes (`ORG-T020` to `ORG-T022`) |
+| Blocking | None. `ORG-T022` waits for the Khmer names |
 
-* The database (`000` to `028`) is applied to the dev project. The test result of `025` has not been reported yet. `028` has no SQL test file (checked in the browser).
+* The database (`000` to `028`) is applied to the dev project. `028` has no SQL test file (checked in the browser).
 * **Permissions are enforced on writes** through the wrappers. Reads are open to every tenant member, history included. The private write functions stay `service_role` only.
 * The frontend can read and manage everything in the ORG scope: levels (9h), units on both trees (9f), jobs and Department listings (9g), allocations and headcount (9d, 9e). Closed records show on six tabs (9i). As of date views exist on the Org tree, Position tree, Department listings and Headcount tabs, and a Moves (reorg) view on both trees (9k). Buttons are hidden by `check_permissions` where the user lacks the permission.
 * Gap fixes planned after 9l (section 3): 1000-row warning (`ORG-T020`), Phnom Penh date defaults (`ORG-T021`), Khmer level names (`ORG-T022`, Stage 2b).
@@ -56,8 +56,8 @@ Module code: `ORG`. Stages are written "ORG Stage N". Migration headers that say
 | 9i | History view of closed rules, units, jobs, listings and allocations (Current / Closed toggle on six tabs) | `ORG-D09`, `ORG-D17` | `023`, `024` | `Closed*` lists, `HistoryToggle` | 9c | Passed |
 | 9j | Name history, then reverted (a corrected name shows everywhere regardless of date). Trimmed names in the create functions stay | `ORG-D11` (reversed) | `026`, `027` | none | 9i | **Passed (reverted)** |
 | 9k | History reads: reorg history views and as-of functions (`028`), as-of views on both trees, Headcount and Department listings, Moves (reorg) view | `ORG-D12`, `ORG-D13`, `ORG-Q09` | `028` | `queriesHistory.ts`, `AsOf*`, `UnitMoves`, `HistoryToggle` | 9i | **Passed** |
-| 9l | Re-create button on history rows: opens the existing add form pre-filled from the closed record. Frontend only, no migration. One step per record type (units, jobs, listings, rules, allocations) | `ORG-D09`, 3.2 (journey 4) | none | `Closed*` lists, the add dialogs, `OrgConfigView` | 9i, 9k | **Planned** |
-| Platform | Last tenant admin guard (belongs to the members, roles and setup work) | `ORG-D10` | `025` | none | `012` | Applied to dev. Test result not reported yet |
+| 9l | Re-create button on history rows of units, jobs and Department listings: opens the add dialog pre-filled from the closed record, disabled when the old parent, org unit or Department is closed. Frontend only. Closed level rules and allocations were left out on purpose (create them again by hand) | `ORG-D09`, 3.2 (journey 4) | none | `ClosedUnits`, `ClosedJobs`, `ClosedListings` and their add dialogs | 9i, 9k | **Passed (units, jobs, listings)** |
+| Platform | Last tenant admin guard (belongs to the members, roles and setup work) | `ORG-D10` | `025` | none | `012` | Applied to dev. Test passed (2026-11-07) |
 
 **Not counted in the stages**
 
@@ -73,18 +73,8 @@ Module code: `ORG`. Stages are written "ORG Stage N". Migration headers that say
 
 | Task | Stage | Task | Type | Blueprint ref | Who | State | Done on | Note |
 |---|---|---|---|---|---|---|---|---|
-| `ORG-T002` | Platform | Run `025_last_tenant_admin_guard_test.sql` in the SQL Editor (dev project). It must return "Success. No rows returned" | SQL test | `ORG-D10` | You | To do | | Paste any `FAIL:` message exactly |
 | `ORG-T008` | 9k | `028_history_reads_test.sql` (SQL test) | SQL test | 4.8 | Claude | To do (optional) | | Needs `026_trimmed_names_test.sql` as a template (or `001_tenancy.sql`). The four as-of functions and the two link views were checked in the browser only |
-| `ORG-T009` | 9k | Update `HRIS_ORG_FRONTEND_REFERENCE.md` for the `028` objects and the 9k frontend files | Document | | Claude | To do | | |
-| `ORG-T019` | 9k | Update the Blueprint: `ORG-Q09` settled, decision `ORG-D12` confirmed, `ORG-D11` reversed (`ORG-I05`), section 4.6 (public contract and `028`), `ORG-UAT10` dropped | Document | `ORG-Q09`, `ORG-D11`, `ORG-D12`, 4.6 | Claude | To do | | Claude has the Blueprint from earlier in this chat |
-| `ORG-T011` | 9l | Confirm scope and behaviour of Re-create (questions in the chat: which record types, what is pre-filled, what if the old parent or Department is closed, how the allocation case works) | Decision | 3.2 (journey 4), `ORG-D09` | You | To do | | Becomes a decision in the Blueprint once agreed |
-| `ORG-T012` | 9l | Send the frontend files listed in section 7 | Check | | You | To do | | |
-| `ORG-T013` | 9l-1 | Re-create on closed units (Org tree, Position tree history): opens the Add dialog pre-filled | Frontend | 3.2 | Claude | To do | | Depends on `ORG-T011`, `ORG-T012` |
-| `ORG-T014` | 9l-2 | Re-create on closed jobs: opens the Add job dialog pre-filled | Frontend | 3.2 | Claude | To do | | |
-| `ORG-T015` | 9l-3 | Re-create on closed Department listings: opens the List Department dialog pre-filled | Frontend | 3.2 | Claude | To do | | |
-| `ORG-T016` | 9l-4 | Re-create on closed level rules: opens the Enable level dialog pre-filled | Frontend | 3.2 | Claude | To do | | |
-| `ORG-T017` | 9l-5 | Re-create on closed allocations: pre-fills the Allocation form | Frontend | 3.2 | Claude | To do | | Needs a decision on how the Allocation form tab receives the values |
-| `ORG-T018` | 9l | Update the Blueprint (journey 4 in 3.2), `HRIS_ORG_FRONTEND_REFERENCE.md` (section 10), section 11 below | Document | 3.2 | Claude | To do | | When 9l passes |
+| `ORG-T009` | 9k, 9l | Update `HRIS_ORG_FRONTEND_REFERENCE.md`: the `028` objects, the 9k and 9l frontend files, gaps G6, G7, G9, source map | Document | | Claude | To do | | Needs `queriesHistory.ts` (parameter names of the `028` functions). The Blueprint is done |
 | `ORG-T020` | Gap | Show a visible warning when a list or total reaches 1000 rows (Supabase limit): Headcount grid, six Closed lists, as-of views, Moves, Jobs, Department listings. One shared warning, used by every list | Frontend | `ORG-Q11` | Claude | To do | | Needs `queries.ts`, `queriesHistory.ts` and the list components (section 7) |
 | `ORG-T021` | Gap | Server-date defaults use the Phnom Penh date (UTC+7) instead of UTC in `create_org_unit`, `create_pos_unit`, `create_job_position`, `enable_level_rule` and the rename functions. New migration | Migration | `ORG-Q10` (settled) | Claude | To do | | Needs the latest function files (section 7). Also check the other functions for the same default |
 | `ORG-T022` | 2b | Seed the Khmer names of the 7 levels (small seed migration on `hierarchy_level`) | Migration | `ORG-D05`, `ORG-Q05` | You / Claude | Blocked | | Needs the 7 Khmer names from you and `002_hierarchy_levels.sql` |
@@ -99,7 +89,7 @@ Stages 0 to 9k all passed (SQL tests and browser checks, file by file in section
 
 ## 5. Files
 
-Migrations `000` to `028` are applied to the dev project. The test result of `025` has not been reported yet. Migrations are one chain shared by all modules (`000`, `001` are shared platform files).
+Migrations `000` to `028` are applied to the dev project. Migrations are one chain shared by all modules (`000`, `001` are shared platform files).
 
 ### 5.1 Migrations and tests
 
@@ -130,7 +120,7 @@ Migrations `000` to `028` are applied to the dev project. The test result of `02
 | `022_rename_unit.sql` | 9f | `private.rename_org_unit`, `private.rename_pos_unit`, public wrappers `rename_org_unit`, `rename_pos_unit` (ORG Stage 9f-1) | `022_rename_unit_test.sql` |
 | `023` (file name not recorded) | 9i | Read-only history views `company_level_rules_closed`, `org_units_closed`, `pos_units_closed` (ORG Stage 9i, part 1) | browser test (ORG Stage 9i) |
 | `024_history_views_jobs_listings_allocations.sql` | 9i | Read-only history views `job_positions_closed`, `org_unit_departments_closed`, `position_allocations_closed` (ORG Stage 9i, part 2) | browser test (ORG Stage 9i) |
-| `025_last_tenant_admin_guard.sql` (platform) | Platform (written for ORG) | Trigger on `core.member_role_scope` that refuses deleting or downgrading the last tenant-wide `tenant_admin`, also through removing the member or the auth user. **Applied to dev. Test result not reported yet** | `025_last_tenant_admin_guard_test.sql` |
+| `025_last_tenant_admin_guard.sql` (platform) | Platform (written for ORG) | Trigger on `core.member_role_scope` that refuses deleting or downgrading the last tenant-wide `tenant_admin`, also through removing the member or the auth user. **Applied to dev. Test passed (2026-11-07)** | `025_last_tenant_admin_guard_test.sql` |
 | `026_name_history.sql` | 9j | `private.create_org_unit` and `private.create_pos_unit` replaced (names trimmed, an empty Khmer name stored as null, blank English name refused). The name history part was removed by `027` | `026_trimmed_names_test.sql` |
 | `027_revert_name_history.sql` | 9j | Drops the name history triggers, function and table. Nothing else changes | `026_trimmed_names_test.sql` |
 | `028_history_reads.sql` | 9k | Views `org_unit_parent_links_closed`, `pos_unit_parent_links_closed` (closed parent links, `unit_valid_to` empty = the unit is still open, so the link ended by a reorg). Functions `org_units_as_of`, `pos_units_as_of`, `position_allocations_as_of`, `org_unit_departments_as_of` (each `(company, date)`, date required). Date rule: `valid_to` is the last valid day, inclusive. Where two rows touch on one date the later start wins, then the higher id. Nothing in `core` changes | browser test (ORG Stage 9k). No SQL test file (`ORG-T008`) |
@@ -157,16 +147,16 @@ Migrations `000` to `028` are applied to the dev project. The test result of `02
 | `modules/org/components/AsyncSelect.tsx` | Dropdown that loads its own options, shows a reason when empty, reset with a `key`. Also exports `selectClassName` |
 | `modules/org/components/CascadeSelector.tsx` | One dropdown per level, user can stop at any depth |
 | `modules/org/components/OrgTreeExplorer.tsx` | Expandable tree with Expand all / Collapse all (org and position trees). **9f:** optional `manage` prop adds Add, Rename, Move and Close buttons per unit and "Add top-level unit", shown only where `check_permissions` allows (one batched call). Refreshes the page after each save. Without `manage` it is read-only (used by the as-of view, 9k) |
-| `modules/org/components/UnitActionDialog.tsx` | **9f, new.** One modal for add, rename, close and move. Add offers only the levels the company's rules allow under that parent. Move offers only valid parents (never the unit itself or anything below it). Close is blocked in the form while open units are under it |
+| `modules/org/components/UnitActionDialog.tsx` | **9f, new.** One modal for add, rename, close and move. Add offers only the levels the company's rules allow under that parent. Move offers only valid parents (never the unit itself or anything below it). Close is blocked in the form while open units are under it **9l:** optional `prefill` (names and level) for add, titled Re-create |
 | `modules/org/unitTree.ts` | **9f, new.** Pure helpers: `descendantIds`, `departmentIdOf`, `childLevelRules`, `moveTargets` |
 | `modules/org/components/AllocationForm.tsx` | Org location -> Department -> position unit -> job -> headcount and start date. Duplicate check. **9d:** Save calls `create_allocation`, is blocked while the duplicate check runs or when an open allocation exists, clears job and headcount after saving, and refreshes the data. **9e:** Save is disabled with a reason when the user lacks `org.allocation.write` for the selected org unit and Department |
 | `modules/org/components/AllocationActionDialog.tsx` | **9d, new.** Modal to change the headcount of one allocation or close it, with an effective or close date |
 | `modules/org/components/HeadcountGrid.tsx` | Open allocations with search, org unit and Department filters, totals. Not paged. **9d:** Change and Close buttons on every row (new `companyId` prop). **9e:** one batched permission check for all rows. Change and Close show only where allowed, other rows show "View only" |
 | `modules/org/components/Modal.tsx` | **9g, new.** Shared modal frame: title, content, error line, Cancel and submit buttons (submit disabled while saving or when `canSubmit` is false). Used by `JobDialog`, `ListingDialog` and `LevelRuleDialog` |
 | `modules/org/components/JobCatalog.tsx` | **9g, new.** Jobs tab. Loads open jobs with `fetchJobs`, search by name, Department filter, "Showing x of y", sorted by Department then job name. Shows open allocations per job. Add job position button shows only if the user has `pos.job.write` for at least one Department. Rename and Close per row show only where allowed (one batched check), other rows show "View only". Shows a message when the company has no Department. Reloads its list and refreshes the page after each save |
-| `modules/org/components/JobDialog.tsx` | **9g, new.** Modal to add, rename or close one job. Add: Department (only Departments the user may write to), English name (required), Khmer name (optional); the job starts on the server's date. Rename: Save is disabled until a name changed. Close: close date (defaults to today's Phnom Penh date) and a note on how many open allocations close with the job |
+| `modules/org/components/JobDialog.tsx` | **9g, new.** Modal to add, rename or close one job. Add: Department (only Departments the user may write to), English name (required), Khmer name (optional); the job starts on the server's date. Rename: Save is disabled until a name changed. Close: close date (defaults to today's Phnom Penh date) and a note on how many open allocations close with the job **9l:** optional `prefill` (names) for add, titled Re-create |
 | `modules/org/components/DepartmentListings.tsx` | **9g, new.** Department listings tab. One row per org unit (sorted by level, then name) with its listed Departments. Loads listings with `fetchListings`. Add Department and the remove (✕) button show only where the user has `org.eligibility.write` at that org unit (one batched check), other rows show "View only". Add is disabled when every Department is already listed. Reloads and refreshes the page after each save |
-| `modules/org/components/ListingDialog.tsx` | **9g, new.** Modal to list a Department for an org unit (Department not yet listed there, start date) or remove a listing (close date). Remove is blocked in the form while open allocations use the listing, and tells the user to close them on the Headcount tab first |
+| `modules/org/components/ListingDialog.tsx` | **9g, new.** Modal to list a Department for an org unit (Department not yet listed there, start date) or remove a listing (close date). Remove is blocked in the form while open allocations use the listing, and tells the user to close them on the Headcount tab first **9l:** optional `prefillDepartmentId` for add, titled Re-create |
 | `modules/org/components/HierarchyConfig.tsx` | **9h, new.** Configuration tab: the org and pos level tables (status, allowed parents). "Enable level" or "Add parent option" per level and "Disable" per rule, shown only where the user has `org.config.write` (company-level check, one empty target). Parent choices are the root (only if the level can be root) or an enabled higher level of the same tree, never one that already exists. The button is disabled with a hint when no choice is left. Refreshes the page after each save |
 | `modules/org/components/LevelRuleDialog.tsx` | **9h, new.** Modal (uses `Modal`) to enable a level under a parent (the rule starts on the server's date) or disable one rule (close date, default today's Phnom Penh date, not before the rule's start). Database guard messages (`007`, `020`) are shown in the dialog |
 | `modules/org/components/HistoryToggle.tsx` | **9i, new. 9k:** exports `ViewMode` (`"current"`, `"closed"`, `"asof"`, `"moves"`). Always shows Current and Closed (history), plus the `extraModes` the tab passes (As of date, Moves (reorg)) |
@@ -176,11 +166,11 @@ Migrations `000` to `028` are applied to the dev project. The test result of `02
 | `modules/org/components/AsOfListings.tsx` | **9k, new.** As of date view of the Department listings tab: one row per org unit valid on the date with the Departments it listed (reads the listings and both as-of trees, so units closed since still show) |
 | `modules/org/components/UnitMoves.tsx` | **9k, new.** Moves (reorg) view of the Org tree and Position tree: where moved units used to sit, the date they started under that parent and the date they moved (`fetchUnitMoves`). Search by unit or previous parent |
 | `modules/org/components/ClosedRules.tsx` | **9i, new.** Closed level rules of both trees (level, what it was allowed under, started, closed) |
-| `modules/org/components/ClosedUnits.tsx` | **9i, new.** Closed org or position units (one component, `tree` prop): name, level, the parent it had when it closed, started, closed. Search by name |
+| `modules/org/components/ClosedUnits.tsx` | **9i, new.** Closed org or position units (one component, `tree` prop): name, level, the parent it had when it closed, started, closed. Search by name **9l:** Re-create button per row (disabled with a reason when the old parent is closed or the level is not enabled under it, hidden without the unit write permission). Position tree: the parent's level shows next to its name in Was under |
 | `modules/org/components/ClosedAllocations.tsx` | **9i, new.** Closed allocations (headcount history): org unit, Department, position unit, job, approved headcount, started, closed. Search, org unit and Department filters. A headcount change shows as one closed row with the old headcount |
-| `modules/org/components/ClosedJobs.tsx` | **9i, new.** Closed job positions: Department, job, started, closed. Search and Department filter |
-| `modules/org/components/ClosedListings.tsx` | **9i, new.** Closed Department listings: org unit, Department, started, closed. Search and Department filter |
-| `modules/org/components/OrgConfigView.tsx` | Header (company selector, EN / ខ្មែរ switch, sign out) and tabs: Configuration, Org tree, Position tree, Jobs, Department listings, Allocation form, Headcount. **9d:** passes `companyId` to the grid. **9g:** two new tabs, Jobs and Department listings. Departments are the position units with no parent, passed to both new tabs. Each tab is keyed by company. **9h:** the Configuration tab renders `HierarchyConfig`. **9i:** a `HistoryToggle` on six tabs (Configuration, Org tree, Position tree, Jobs, Department listings, Headcount). Closed shows the matching closed list instead of the current screen. The toggle goes back to Current when you switch tabs. The Allocation form tab has no history. **9k:** the toggle state is `mode`. A `HISTORY_MODES` table sets the extra modes per tab: Org tree and Position tree offer As of date and Moves (reorg), Department listings and Headcount offer As of date |
+| `modules/org/components/ClosedJobs.tsx` | **9i, new.** Closed job positions: Department, job, started, closed. Search and Department filter **9l:** Re-create button per row (disabled when the Department is closed, hidden without `pos.job.write`). Takes the open Departments |
+| `modules/org/components/ClosedListings.tsx` | **9i, new.** Closed Department listings: org unit, Department, started, closed. Search and Department filter **9l:** Re-create button per row (disabled when the org unit or Department is closed or the listing is already open, hidden without `org.eligibility.write`). Takes the open org units and Departments and also loads the open listings |
+| `modules/org/components/OrgConfigView.tsx` | Header (company selector, EN / ខ្មែរ switch, sign out) and tabs: Configuration, Org tree, Position tree, Jobs, Department listings, Allocation form, Headcount. **9d:** passes `companyId` to the grid. **9g:** two new tabs, Jobs and Department listings. Departments are the position units with no parent, passed to both new tabs. Each tab is keyed by company. **9h:** the Configuration tab renders `HierarchyConfig`. **9i:** a `HistoryToggle` on six tabs (Configuration, Org tree, Position tree, Jobs, Department listings, Headcount). Closed shows the matching closed list instead of the current screen. The toggle goes back to Current when you switch tabs. The Allocation form tab has no history. **9k:** the toggle state is `mode`. A `HISTORY_MODES` table sets the extra modes per tab: Org tree and Position tree offer As of date and Moves (reorg), Department listings and Headcount offer As of date **9l:** passes the levels, rules and open units or Departments to the Closed units, jobs and listings screens |
 | `app/page.tsx` | Server loader inside `<Suspense>`: companies, levels, rules, org and position units, current allocations |
 
 ### 5.3 Current versions of replaced functions
@@ -205,9 +195,9 @@ Start from the **latest** version when changing these:
 
 Do the steps in order. Each one is validated before the next starts.
 
-1. **Test `025`** (task `ORG-T002`). `026` and `027` are applied and passed. Done when the `025` test returns "Success. No rows returned". Can be done at any time.
-2. **Close ORG Stage 9k on paper** (tasks `ORG-T009`, `ORG-T019`). Update `HRIS_ORG_FRONTEND_REFERENCE.md` for `028` and the 9k frontend files, and the Blueprint (`ORG-Q09` settled, `ORG-D12` confirmed, `ORG-D11` reversed, section 4.6, `ORG-UAT10` dropped, `ORG-I05` closed). Optional: the `028` SQL test (`ORG-T008`). Done when both documents are updated.
-3. **ORG Stage 9l: Re-create button on history rows** (tasks `ORG-T011` to `ORG-T018`). First agree the behaviour (`ORG-T011`) and send the files (section 7). Then one record type at a time: units, jobs, listings, rules, allocations. Frontend only, no migration. Done when each type is checked in the browser.
+1. **Test `025`:** passed on 2026-11-07.
+2. **Close ORG Stages 9k and 9l on paper.** The Blueprint is updated (2026-11-07). Left: `HRIS_ORG_FRONTEND_REFERENCE.md` (`ORG-T009`). Optional: the `028` SQL test (`ORG-T008`).
+3. **ORG Stage 9l: Re-create button on history rows. Passed** for units, jobs and Department listings (checked in the browser on 2026-11-07). Level rules and allocations were not built on purpose.
 4. **Gap fixes** (tasks `ORG-T020` to `ORG-T022`). Add the 1000-row warning, move the server-date defaults to the Phnom Penh date (`ORG-Q10` settled: UTC+7), seed the Khmer level names once supplied. One task at a time. Done when each is checked in the browser or with a SQL test.
 5. **Settle the assumptions** (`ORG-Q01` to `ORG-Q08` in the Blueprint). Go through them one by one. Each becomes a decision or changes. Start with "any tenant member sees everything", since the Employee module depends on it. Done when each item is marked Settled.
 6. **Members, roles and setup: planning document.** Written before any code, in the same style as the Blueprint. Choose a module code (`PLT` is proposed, waiting for your confirmation) and create `HRIS_<CODE>_BLUEPRINT.md` and `HRIS_<CODE>_STATUS.md` from the templates. Cover: scope; setup functions (create tenant, company, membership); role management functions (give and remove a role, change a role); who may see all assignments of a tenant; what `members.manage` allows; how reads are governed (decision on `org.read`); screens; stages. The last admin guard (`025`) is already part of it. Done when the document is agreed.
@@ -225,12 +215,10 @@ Do the steps in order. Each one is validated before the next starts.
 
 ## 7. Pending from you
 
-* Run the test for `025` and report the result (paste any `FAIL:` message exactly).
-* Answer the Re-create questions in the chat (`ORG-T011`).
-* For ORG Stage 9l (`ORG-T012`), send: `ClosedUnits.tsx`, `ClosedJobs.tsx`, `ClosedListings.tsx`, `ClosedRules.tsx`, `ClosedAllocations.tsx`, `UnitActionDialog.tsx`, `JobDialog.tsx`, `ListingDialog.tsx`, `LevelRuleDialog.tsx`, `AllocationForm.tsx`, `Modal.tsx`, `modules/org/unitTree.ts`, `modules/org/permissions.ts`, `modules/org/labels.ts`, `modules/org/types.ts`, `modules/org/queries.ts`, `OrgTreeExplorer.tsx`, `OrgConfigView.tsx`, `JobCatalog.tsx`, `DepartmentListings.tsx`, `HierarchyConfig.tsx`. Not all are needed at once: units first (`ClosedUnits`, `UnitActionDialog`, `unitTree.ts`, `OrgTreeExplorer`, `OrgConfigView`, `permissions.ts`, `labels.ts`, `types.ts`, `queries.ts`), the rest when each record type comes up.
-* For `ORG-T020`: `queriesHistory.ts`, `HeadcountGrid.tsx` and the list components (most are already in the 9l list).
+* For `ORG-T020`: `queriesHistory.ts`, `HeadcountGrid.tsx` and the list components and the Closed* and list components.
 * For `ORG-T021`: the files of `018`, `020`, `022` and `026` (the latest versions of the functions, section 5.3).
 * Optional: send `026_trimmed_names_test.sql` (or `001_tenancy.sql`) if you want the `028` SQL test (`ORG-T008`).
+* Send `modules/org/queriesHistory.ts` for `ORG-T009` (and `database.types.ts` if the `028` columns are needed).
 * Confirm the file names of migration `023` and its test, if you want them recorded.
 * Settle the assumptions in the Blueprint, section 2 (Next plan, step 5).
 * Choose the module code for Members, roles and setup (Next plan, step 6).
@@ -256,6 +244,7 @@ Do the steps in order. Each one is validated before the next starts.
 | `ORG-UAT08` Disable level blocked | 6a, 9h | Not run | | |
 | `ORG-UAT09` Other tenant's data | 0-1, 7 | Not run | | |
 | `ORG-UAT10` Names at the time | none | Dropped | 2026-11-07 | Name history reverted (`027`). Names always show the current name |
+| `ORG-UAT11` Re-create | 9l | Not run | | Proposed in Blueprint 1.6 |
 
 ---
 
@@ -264,7 +253,7 @@ Do the steps in order. Each one is validated before the next starts.
 | ID | Stage | Problem | Found by | State | Fix or decision |
 |---|---|---|---|---|---|
 | `ORG-I03` | Housekeeping | File name of `023` and test file names of `006`, `007`, `008`, `011` not recorded | Old Status | Open | Supply the names or accept |
-| `ORG-I05` | 9j | The Blueprint decision `ORG-D11` and section 4.6 were written for name history (names as they were). The decision was reversed: a corrected name shows everywhere regardless of date | Your decision | Open | Update the Blueprint (`ORG-T019`) |
+| `ORG-I05` | 9j | The Blueprint decision `ORG-D11` and section 4.6 were written for name history. The decision was reversed | Your decision | Closed | Blueprint updated on 2026-11-07 (`ORG-D11` reversed, `ORG-UAT10` dropped) |
 
 ---
 
@@ -289,7 +278,7 @@ Do the steps in order. Each one is validated before the next starts.
 | Headcount grid, history lists and as-of reads are not paged. Supabase returns at most 1000 rows per request, so a list or total is too low beyond that | Wrong totals on large data | Warning (`ORG-T020`), then real paging (`ORG-Q11`) |
 | Server-date defaults use UTC. Between 00:00 and 07:00 in Phnom Penh a record is dated one day early (`create_org_unit`, `create_pos_unit`, `create_job_position`, `enable_level_rule` and the rename functions) | One-day offset | Phnom Penh date, UTC+7 (`ORG-T021`) |
 | Khmer level names are empty | Khmer interface shows the level code or English | Seed migration when names are supplied (`ORG-T022`) |
-| Closed records cannot be re-opened | To bring something back, create it again. A re-created unit gets a new ID | Re-create button on history rows (ORG Stage 9l, frontend only) |
+| Closed records cannot be re-opened | To bring something back, create it again. A re-created record gets a new ID | Re-create button on closed units, jobs and Department listings (ORG Stage 9l, passed). Closed level rules and allocations are created again by hand |
 | No SQL test file for the history views (`023`, `024`) and for `028` | Checked in the browser only | Add a test if wanted (`ORG-T008`) |
 | Only the dev Supabase project exists | No production environment | See Next plan, later items |
 
